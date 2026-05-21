@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f8ff" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Sportabzeichen" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="assets/icons/icon-192.png" sizes="192x192" type="image/png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="assets/icons/icon-192.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Sportabzeichen App</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <main class="view-stack">
+        <section id="view-athletes" class="view is-active" data-view="athletes" aria-labelledby="athletes-title">
+          <div class="hero-card">
+            <div class="section-title-row">
+              <button id="athletes-title" type="button" class="group-switch-trigger" aria-label="Gruppenansicht wechseln" aria-haspopup="dialog">Alle Athleten</button>
+              <div class="section-actions">
+                <button id="install-app-btn" type="button" class="ghost-btn" aria-label="App installieren">Installieren</button>
+                <button id="add-athlete-btn" class="title-add-btn" aria-label="Athlet anlegen" title="Athlet anlegen">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="athletes-layout">
+            <div class="athletes-list-pane">
+              <button id="requirements-view-btn" type="button" class="athlete-card-btn requirements-view-btn" aria-label="Anforderungen anzeigen" title="Anforderungen anzeigen">
+                <div class="athlete-main">
+                  <h3>Anforderungen anzeigen</h3>
+                  <p>Zeige schnell die Anforderungen.</p>
+                </div>
+                <span class="age-chip">Info</span>
+              </button>
+
+              <ul id="athlete-list" class="athlete-list" aria-live="polite"></ul>
+
+              <div id="empty-state" class="empty-state">
+                <h3>Noch keine Athleten</h3>
+                <p>Tippe auf das Plus neben dem Titel, um den ersten Sportler anzulegen.</p>
+              </div>
+            </div>
+
+            <article id="athlete-detail-pane" class="athlete-detail-pane" aria-live="polite">
+              <div id="athlete-detail-placeholder" class="empty-state">
+                <h2>Athlet öffnen</h2>
+                <p>Tippe links auf einen Athleten, um Disziplinen und Leistungen zu sehen.</p>
+              </div>
+
+              <div id="athlete-detail-content" class="athlete-detail-content" hidden>
+                <div class="detail-top-row">
+                  <button id="athlete-back-btn" type="button" class="icon-btn detail-back-btn" aria-label="Zurueck zur Liste">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M15 6L9 12L15 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+
+                  <div id="athlete-detail-title-wrap" class="detail-title-wrap">
+                    <h2 id="athlete-detail-title"><span id="athlete-detail-name">Athlet</span><span id="athlete-detail-code" class="athlete-detail-code" hidden></span></h2>
+                    <p id="athlete-detail-subtitle" class="athlete-detail-subtitle"></p>
+                    <div id="athlete-category-status-row" class="category-status-row"></div>
+                  </div>
+
+                  <button id="edit-athlete-btn" type="button" class="title-edit-btn" aria-label="Athlet bearbeiten" title="Athlet bearbeiten">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M4 20h4l10.5-10.5a1.4 1.4 0 0 0 0-2L16.5 5a1.4 1.4 0 0 0-2 0L4 15.5V20Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- <p class="discipline-guidance">Tippe auf eine <b>Disziplin</b>, um Leistungen zu ergänzen, einzusehen oder zu korrigieren.</p> -->
+
+                <div id="requirements-inspector-panel" class="requirements-inspector-panel" hidden></div>
+                <div id="discipline-groups" class="discipline-groups"></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="view-training" class="view" data-view="training" aria-labelledby="training-title">
+          <div class="hero-card training-hero">
+            <div class="section-title-row">
+              <button id="training-title" type="button" class="group-switch-trigger" aria-label="Gruppenansicht wechseln" aria-haspopup="dialog">Alle Athleten</button>
+              <div class="section-actions">
+                <button id="training-mode-toggle-btn" type="button" class="training-mode-toggle-btn" aria-live="polite">Zum Pruefungsmodus</button>
+              </div>
+            </div>
+            <p id="training-subtitle" class="form-subnote">Waehle links eine Disziplin, um Anforderungen und die schnelle Gruppenabnahme zu sehen.</p>
+          </div>
+
+          <div class="training-layout">
+            <aside class="training-discipline-pane" aria-labelledby="training-discipline-list-title">
+              <div class="training-pane-header">
+                <h3 id="training-discipline-list-title">Disziplinen</h3>
+              </div>
+              <div id="training-discipline-list" class="training-discipline-list" aria-live="polite"></div>
+            </aside>
+
+            <article class="training-content-pane" aria-live="polite">
+              <div class="training-content-head">
+                <button id="training-back-btn" type="button" class="icon-btn training-back-btn" aria-label="Zurueck zur Disziplinliste">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M15 6L9 12L15 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                <h3 id="training-content-title">Disziplin</h3>
+              </div>
+              <section id="training-requirements-pane" class="training-requirements-pane"></section>
+              <section id="training-exam-pane" class="training-exam-pane" hidden></section>
+            </article>
+          </div>
+        </section>
+
+        <section id="view-results" class="view" data-view="results" aria-labelledby="results-title">
+          <div class="placeholder-card results-transfer-card">
+            <div class="results-hero">
+              <h2 id="results-title">Auswertung</h2>
+              <p>Daten sichern, austauschen und als Team sauber organisieren.</p>
+
+              <div class="results-kpi-grid" aria-label="Datenuebersicht">
+                <article class="results-kpi">
+                  <span id="results-total-athletes" class="results-kpi-value">0</span>
+                  <span class="results-kpi-label">Athleten</span>
+                </article>
+                <article class="results-kpi">
+                  <span id="results-total-groups" class="results-kpi-value">0</span>
+                  <span class="results-kpi-label">Gruppen</span>
+                </article>
+                <article class="results-kpi">
+                  <span id="results-total-performances" class="results-kpi-value">0</span>
+                  <span class="results-kpi-label">Leistungen</span>
+                </article>
+              </div>
+            </div>
+
+            <div class="results-transfer-grid">
+              <section class="results-transfer-block" aria-labelledby="results-export-title">
+                <h3 id="results-export-title">Export</h3>
+                <p class="form-subnote">Vollstaendige Sicherung als JSON und Sportabzeichen-Digital-Export im Vorlagenformat.</p>
+
+                <label class="results-file-input" for="export-digital-format-select">
+                  <span>Sportabzeichen-Digital Exportart</span>
+                  <select id="export-digital-format-select">
+                    <option value="groupCreateXlsx">Gruppe anlegen (XLSX-Vorlage)</option>
+                    <option value="groupPerformanceXlsx">Gruppe mit Leistungen (XLSX-Vorlage)</option>
+                  </select>
+                </label>
+
+                <label class="results-file-input" for="export-digital-scope-select">
+                  <span>Exportumfang</span>
+                  <select id="export-digital-scope-select">
+                    <option value="all">Alle Athleten</option>
+                    <option value="group">Nur eine Gruppe</option>
+                    <option value="athletes">Ausgewaehlte Athleten</option>
+                  </select>
+                </label>
+
+                <label id="export-digital-group-wrap" class="results-file-input" for="export-digital-group-select" hidden>
+                  <span>Gruppe</span>
+                  <select id="export-digital-group-select"></select>
+                </label>
+
+                <section id="export-digital-athletes-wrap" class="results-athlete-wrap" aria-labelledby="export-digital-athletes-title" hidden>
+                  <div class="results-athlete-wrap-head">
+                    <p id="export-digital-athletes-title" class="form-note">Athletenauswahl</p>
+                    <div class="results-inline-actions">
+                      <button id="export-digital-athletes-all-btn" type="button" class="ghost-btn">Alle</button>
+                      <button id="export-digital-athletes-none-btn" type="button" class="ghost-btn">Keine</button>
+                    </div>
+                  </div>
+                  <div id="export-digital-athlete-selection" class="results-athlete-selection"></div>
+                </section>
+
+                <div class="results-transfer-actions">
+                  <button id="export-full-btn" type="button" class="primary-btn">Export: Vollstaendig (JSON)</button>
+                  <button id="export-digital-btn" type="button" class="secondary-btn">Export: Sportabzeichen Digital</button>
+                </div>
+              </section>
+
+              <section class="results-transfer-block" aria-labelledby="results-import-title">
+                <h3 id="results-import-title">Import</h3>
+                <p class="form-subnote">Unterstuetzt Vollimporte, Sportabzeichen-Digital-CSV und einfache CSV-Dateien.</p>
+
+                <p id="import-detected-format" class="results-detected-format" aria-live="polite">Noch keine Datei ausgewaehlt.</p>
+
+                <label class="results-file-input">
+                  <span>Datei</span>
+                  <input id="import-file-input" type="file" accept=".json,.csv,text/csv,application/json" />
+                </label>
+
+                <section id="import-simple-group-controls" class="results-import-simple-controls" hidden>
+                  <label class="results-import-option">
+                    <input id="import-create-group-checkbox" type="checkbox" />
+                    <span>Importierte Athleten direkt einer Gruppe zuordnen</span>
+                  </label>
+
+                  <label id="import-group-select-wrap" class="results-file-input" hidden>
+                    <span>Gruppe</span>
+                    <select id="import-group-select"></select>
+                  </label>
+                </section>
+
+                <button id="import-run-btn" type="button" class="primary-btn">Import ausfuehren</button>
+              </section>
+            </div>
+
+            <section class="results-disclaimer" aria-labelledby="results-disclaimer-title">
+              <h3 id="results-disclaimer-title">Hinweis / Disclaimer / Copyright 2026</h3>
+              <p>Author: Benny354912</p>
+              <ul class="results-disclaimer-list">
+                <li>Keine Garantie/Gewaehr auf Funktionalitaet oder Richtigkeit.</li>
+                <li>Privatprojekt. Keine Haftung fuer Datenverlust oder andere Schaeden, die von/durch oder in Verbindung mit dieser App/Website entstehen. Nutzung auf eigene Verantwortung.</li>
+                <li>Dieses Projekt ist quelloffen und kann auf GitHub eingesehen werden. Dort koennen auch Fehler und Verbesserungen gemeldet werden.</li>
+                <li>Die Nutzung ist kostenlos und ohne Werbung. Eine kleine Spende freut mich sehr und unterstuetzt/motiviert mich, weiter an diesem und anderen Projekten zu arbeiten und alles aktuell zu halten.</li>
+              </ul>
+              <div class="results-disclaimer-donations">
+                <p><strong>Bitcoin:</strong> <span>bc1qkfaev4eayjllwhy0ga8knfds2tdx9zkp2kmtht</span></p>
+                <p><strong>Solana:</strong> <span>9X6DsdA7nnKFvd9m3TrGTMaqrq9K2zVXHckNhQhaFKRC</span></p>
+                <p><strong>Ethereum, Base, Polygon:</strong> <span>0x3d1797357dfd3639e268B673998e6afb58A180ab</span></p>
+              </div>
+              <p>Vielen Dank fuer die Nutzung.</p>
+            </section>
+          </div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Hauptnavigation">
+        <button class="nav-item is-active" data-target-view="athletes" aria-current="page">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span class="nav-label nav-short">Athl.</span>
+          <span class="nav-label nav-long">Athleten</span>
+        </button>
+
+        <button class="nav-item" data-target-view="training">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 6h14M7 12h10M9 18h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span class="nav-label nav-short">Diz.</span>
+          <span class="nav-label nav-long">Disziplinen</span>
+        </button>
+
+        <button class="nav-item" data-target-view="results">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 18V9M12 18V5M18 18v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span class="nav-label nav-short">Ausw.</span>
+          <span class="nav-label nav-long">Auswertung</span>
+        </button>
+      </nav>
+    </div>
+
+    <div id="athlete-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="athlete-modal-title" hidden>
+      <div class="modal-panel">
+        <div class="modal-header">
+          <h2 id="athlete-modal-title">Athlet anlegen</h2>
+          <button type="button" id="close-modal-btn" class="icon-btn" aria-label="Schliessen">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <form id="athlete-form" novalidate>
+          <div class="form-grid">
+            <label>
+              <span>Vorname</span>
+              <input name="firstName" type="text" autocomplete="given-name" required />
+            </label>
+
+            <label>
+              <span>Nachname</span>
+              <input name="lastName" type="text" autocomplete="family-name" required />
+            </label>
+
+            <label class="athlete-gender-field">
+              <span>Geschlecht</span>
+              <div id="athlete-gender-toggle" class="athlete-gender-toggle" role="group" aria-label="Geschlecht waehlen">
+                <button type="button" class="athlete-gender-btn" data-gender-value="W" aria-pressed="false">W</button>
+                <button type="button" class="athlete-gender-btn" data-gender-value="M" aria-pressed="true">M</button>
+              </div>
+              <input id="athlete-gender-input" name="gender" type="hidden" value="M" />
+            </label>
+
+            <label>
+              <span>Geburtsdatum</span>
+              <input name="birthDate" type="date" required />
+            </label>
+
+            <section class="optional-section form-span-2" aria-labelledby="athlete-groups-note">
+              <p id="athlete-groups-note" class="form-note">Gruppenzuordnung</p>
+              <div id="athlete-group-selection" class="athlete-group-selection"></div>
+            </section>
+
+            <section class="optional-section" aria-labelledby="submission-note">
+              <p id="submission-note" class="form-note">Für Sportabzeichen Digital erforderlich</p>
+
+              <div class="optional-grid">
+                <label>
+                  <span>DSA-ID (optional)</span>
+                  <input name="dsaId" type="text" aria-describedby="submission-note" />
+                </label>
+
+                <label>
+                  <span>PLZ</span>
+                  <input name="zip" type="text" inputmode="text" aria-describedby="submission-note" />
+                </label>
+
+                <label>
+                  <span>Ort</span>
+                  <input name="city" type="text" autocomplete="address-level2" aria-describedby="submission-note" />
+                </label>
+
+                <label>
+                  <span>Land</span>
+                  <input name="country" type="text" autocomplete="country-name" value="Deutschland" aria-describedby="submission-note" />
+                </label>
+              </div>
+            </section>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" id="delete-athlete-btn" class="danger-btn" hidden>Athlet loeschen</button>
+            <button type="button" id="cancel-modal-btn" class="secondary-btn">Abbrechen</button>
+            <button type="submit" id="save-athlete-btn" class="primary-btn">Speichern</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="group-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="group-modal-title" hidden>
+      <div class="modal-panel modal-panel--group">
+        <div class="modal-header">
+          <h2 id="group-modal-title">Gruppen</h2>
+          <button type="button" id="close-group-modal-btn" class="icon-btn" aria-label="Schliessen">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="group-modal-selector">
+          <div class="group-modal-selector-head">
+            <div class="group-modal-selector-copy">
+              <h3>Ansicht wechseln</h3>
+              <p class="form-subnote">Waehle Alle Athleten oder eine bestimmte Gruppe aus.</p>
+            </div>
+            <button type="button" id="create-group-btn" class="title-add-btn" aria-label="Neue Gruppe anlegen" title="Neue Gruppe anlegen">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
+          <div id="group-modal-filter-list" class="group-modal-filter-list"></div>
+        </div>
+
+        <section id="group-form-wrap" class="group-form-wrap" hidden>
+          <div class="group-form-head">
+            <h3 id="group-editor-title">Neue Gruppe</h3>
+            <p class="form-subnote">Lege Name, Mitglieder und optional Trainingszeiten fest.</p>
+          </div>
+
+          <form id="group-form" novalidate>
+            <div class="form-grid">
+              <label>
+                <span>Name</span>
+                <input id="group-name-input" name="groupName" type="text" required />
+              </label>
+
+              <section class="optional-section form-span-2" aria-labelledby="group-athletes-note">
+                <p id="group-athletes-note" class="form-note">Athleten in dieser Gruppe</p>
+                <div id="group-athlete-selection" class="group-athlete-selection"></div>
+              </section>
+
+              <section class="optional-section form-span-2" aria-labelledby="group-training-note">
+                <div class="group-slot-header">
+                  <p id="group-training-note" class="form-note">Trainingszeiten (optional)</p>
+                  <button type="button" id="add-training-slot-btn" class="ghost-btn">+ Trainingszeit</button>
+                </div>
+                <div id="group-training-slots" class="group-training-slots"></div>
+              </section>
+            </div>
+
+            <div class="modal-actions">
+              <button type="button" id="delete-group-btn" class="danger-btn" hidden>Gruppe loeschen</button>
+              <button type="button" id="cancel-group-modal-btn" class="secondary-btn">Zurueck</button>
+              <button type="submit" id="save-group-btn" class="primary-btn">Speichern</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </div>
+
+    <div id="performance-modal" class="modal modal--keyboard-aware" role="dialog" aria-modal="true" aria-labelledby="performance-modal-title" hidden>
+      <div class="modal-panel performance-modal-panel">
+        <div class="modal-header">
+          <div>
+            <h2 id="performance-modal-title">Leistung erfassen</h2>
+            <p id="performance-modal-meta" class="performance-modal-meta"></p>
+          </div>
+          <button type="button" id="close-performance-modal-btn" class="icon-btn" aria-label="Leistungsdialog schliessen">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <form id="performance-form" class="performance-form" novalidate>
+          <label id="performance-value-label">
+            <span>Leistung</span>
+            <input id="performance-value-input" name="performanceValue" type="text" required />
+          </label>
+
+          <div id="performance-special-fields" class="performance-special-fields" hidden>
+            <label id="performance-special-select-label" hidden>
+              <span id="performance-special-select-text">Auswahl</span>
+              <select id="performance-special-select"></select>
+            </label>
+
+            <label id="performance-special-level-label" hidden>
+              <span id="performance-special-level-text">Ergaenzung</span>
+              <input id="performance-special-level" type="text" />
+              <div id="performance-special-level-picker" class="medal-level-picker" hidden>
+                <button type="button" class="medal-level-btn medal-level-btn--bronze" data-level="Bronze" aria-pressed="false">Bronze</button>
+                <button type="button" class="medal-level-btn medal-level-btn--silber" data-level="Silber" aria-pressed="false">Silber</button>
+                <button type="button" class="medal-level-btn medal-level-btn--gold" data-level="Gold" aria-pressed="false">Gold</button>
+              </div>
+            </label>
+
+            <p id="performance-special-hint" class="form-subnote" hidden></p>
+          </div>
+
+          <label id="performance-datetime-label">
+            <span>Datum und Uhrzeit</span>
+            <input id="performance-datetime-input" name="performanceDateTime" type="datetime-local" required />
+          </label>
+
+          <div class="modal-actions performance-actions">
+            <button type="button" id="delete-performance-btn" class="danger-btn" hidden>Löschen</button>
+            <button type="button" id="cancel-performance-edit-btn" class="secondary-btn">Abbrechen</button>
+            <button type="submit" id="save-performance-btn" class="primary-btn">Speichern</button>
+          </div>
+        </form>
+
+        <div class="performance-history-wrap">
+          <h3 class="performance-history-title">Verlauf</h3>
+          <ul id="performance-history" class="performance-history"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="disclaimer-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="disclaimer-modal-title" hidden>
+      <div class="modal-panel modal-panel--disclaimer">
+        <div class="modal-header">
+          <h2 id="disclaimer-modal-title">Hinweis / Disclaimer / Copyright 2026</h2>
+        </div>
+
+        <div class="disclaimer-content">
+          <p><strong>Author:</strong> Benny354912</p>
+          <ul class="disclaimer-list">
+            <li>Keine Garantie/Gewaehr auf Funktionalitaet oder Richtigkeit.</li>
+            <li>Privatprojekt. Keine Haftung fuer Datenverlust oder andere Schaeden, die von/durch oder in Verbindung mit dieser App/Website entstehen. Nutzung auf eigene Verantwortung.</li>
+            <li>Dieses Projekt ist quelloffen und kann auf GitHub eingesehen werden. Dort koennen auch Fehler und Verbesserungen gemeldet werden.</li>
+            <li>Die Nutzung ist kostenlos und ohne Werbung. Eine kleine Spende freut mich sehr und unterstuetzt/motiviert mich, weiter an diesem und anderen Projekten zu arbeiten und alles aktuell zu halten.</li>
+          </ul>
+
+          <div class="disclaimer-donations">
+            <p><strong>Bitcoin:</strong> <span>bc1qkfaev4eayjllwhy0ga8knfds2tdx9zkp2kmtht</span></p>
+            <p><strong>Solana:</strong> <span>9X6DsdA7nnKFvd9m3TrGTMaqrq9K2zVXHckNhQhaFKRC</span></p>
+            <p><strong>Ethereum, Base, Polygon:</strong> <span>0x3d1797357dfd3639e268B673998e6afb58A180ab</span></p>
+          </div>
+
+          <p>Vielen Dank fuer die Nutzung.</p>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="ack-disclaimer-btn" class="primary-btn">Gelesen und verstanden</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="training-exam-controls-host" class="training-exam-controls-host" hidden></div>
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>

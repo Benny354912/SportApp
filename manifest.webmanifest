@@ -1,0 +1,32 @@
+{
+  "name": "Sportabzeichen App",
+  "short_name": "SportApp",
+  "id": "./",
+  "description": "Schnelle Abnahme und Verwaltung von Sportabzeichenleistungen",
+  "lang": "de-DE",
+  "start_url": "./",
+  "scope": "./",
+  "prefer_related_applications": false,
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4f8ff",
+  "theme_color": "#f4f8ff",
+  "icons": [
+    {
+      "src": "./assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

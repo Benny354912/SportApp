@@ -2,9 +2,9 @@
 
 Kleine Web-App (PWA) zur Verwaltung und Auswertung von Leistungen fuer das Deutsche Sportabzeichen.
 
-[![App nutzen (GitHub Pages)](https://img.shields.io/badge/App%20nutzen-GitHub%20Pages-0A66C2?style=for-the-badge)](https://benny354912.github.io/SportApp/)
+[![App nutzen (GitHub Pages)](https://img.shields.io/badge/App%20nutzen-GitHub%20Pages-0A66C2?style=for-the-badge)](https://benny354912.github.io/SportabzeichenApp/)
 
-Direktlink: https://benny354912.github.io/SportApp/
+Direktlink: https://benny354912.github.io/SportabzeichenApp/
 
 ## Hinweis / Disclaimer
 - Keine Garantie/Gewaehr auf Funktionalitaet oder Richtigkeit.
