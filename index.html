@@ -145,44 +145,66 @@
             <div class="results-transfer-grid">
               <section class="results-transfer-block" aria-labelledby="results-export-title">
                 <h3 id="results-export-title">Export</h3>
-                <p class="form-subnote">Vollstaendige Sicherung als JSON und Sportabzeichen-Digital-Export im Vorlagenformat.</p>
+                <p class="form-subnote">Exportart auswaehlen, Umfang filtern und mit einem Klick exportieren.</p>
 
                 <label class="results-file-input" for="export-digital-format-select">
                   <span>Sportabzeichen-Digital Exportart</span>
                   <select id="export-digital-format-select">
+                    <option value="fullJson">Vollstaendig (JSON)</option>
                     <option value="groupCreateXlsx">Gruppe anlegen (XLSX-Vorlage)</option>
                     <option value="groupPerformanceXlsx">Gruppe mit Leistungen (XLSX-Vorlage)</option>
+                    <option value="flowText">Fliess Text (.txt)</option>
                   </select>
                 </label>
 
-                <label class="results-file-input" for="export-digital-scope-select">
+                <label id="export-digital-scope-wrap" class="results-file-input" for="export-digital-scope-select">
                   <span>Exportumfang</span>
                   <select id="export-digital-scope-select">
                     <option value="all">Alle Athleten</option>
-                    <option value="group">Nur eine Gruppe</option>
+                    <option value="group">Gruppen</option>
                     <option value="athletes">Ausgewaehlte Athleten</option>
                   </select>
                 </label>
 
                 <label id="export-digital-group-wrap" class="results-file-input" for="export-digital-group-select" hidden>
-                  <span>Gruppe</span>
-                  <select id="export-digital-group-select"></select>
+                  <span>Gruppen (Einzel- oder Mehrfachauswahl)</span>
+                  <select id="export-digital-group-select" multiple size="6"></select>
+                </label>
+
+                <label id="export-flow-text-mode-wrap" class="results-file-input" for="export-flow-text-mode-select" hidden>
+                  <span>Fliesstext Exportumfang</span>
+                  <select id="export-flow-text-mode-select">
+                    <option value="full">Alles</option>
+                    <option value="compactBestOnly">Nur Bestleistungen</option>
+                  </select>
                 </label>
 
                 <section id="export-digital-athletes-wrap" class="results-athlete-wrap" aria-labelledby="export-digital-athletes-title" hidden>
                   <div class="results-athlete-wrap-head">
                     <p id="export-digital-athletes-title" class="form-note">Athletenauswahl</p>
                     <div class="results-inline-actions">
-                      <button id="export-digital-athletes-all-btn" type="button" class="ghost-btn">Alle</button>
-                      <button id="export-digital-athletes-none-btn" type="button" class="ghost-btn">Keine</button>
+                      <button id="export-digital-athletes-all-btn" type="button" class="ghost-btn">Alle sichtbaren</button>
+                      <button id="export-digital-athletes-none-btn" type="button" class="ghost-btn">Keine sichtbaren</button>
+                      <button id="export-digital-athletes-invert-btn" type="button" class="ghost-btn">Umkehren</button>
                     </div>
                   </div>
+
+                  <section class="results-group-filter-wrap" aria-labelledby="export-selection-group-filter-title">
+                    <div class="results-athlete-wrap-head">
+                      <p id="export-selection-group-filter-title" class="form-note">Filter nach Gruppen</p>
+                      <div class="results-inline-actions">
+                        <button id="export-group-filter-all-btn" type="button" class="ghost-btn">Alle Gruppen</button>
+                        <button id="export-group-filter-none-btn" type="button" class="ghost-btn">Keine Gruppe</button>
+                      </div>
+                    </div>
+                    <div id="export-selection-group-filter" class="results-group-filter-list"></div>
+                  </section>
+
                   <div id="export-digital-athlete-selection" class="results-athlete-selection"></div>
                 </section>
 
                 <div class="results-transfer-actions">
-                  <button id="export-full-btn" type="button" class="primary-btn">Export: Vollstaendig (JSON)</button>
-                  <button id="export-digital-btn" type="button" class="secondary-btn">Export: Sportabzeichen Digital</button>
+                  <button id="export-run-btn" type="button" class="primary-btn">Export</button>
                 </div>
               </section>
 

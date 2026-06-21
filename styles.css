@@ -363,6 +363,12 @@ select {
     background: #fff;
 }
 
+.results-file-input select[multiple] {
+    height: auto;
+    min-height: 128px;
+    padding: 8px 10px;
+}
+
 .results-file-input input[type="file"] {
     padding-top: 8px;
 }
@@ -454,6 +460,63 @@ select {
     padding-right: 2px;
 }
 
+.results-group-filter-wrap {
+    display: grid;
+    gap: 8px;
+    border: 1px solid rgba(19, 35, 61, 0.14);
+    border-radius: 10px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.88);
+}
+
+.results-group-filter-list {
+    display: grid;
+    gap: 6px;
+    max-height: 150px;
+    overflow: auto;
+    padding-right: 2px;
+}
+
+.results-group-filter-choice {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(19, 35, 61, 0.14);
+    border-radius: 9px;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.95);
+}
+
+.results-group-filter-choice.is-selected {
+    border-color: rgba(17, 72, 148, 0.4);
+    background: rgba(23, 118, 255, 0.09);
+}
+
+.results-group-filter-choice input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+}
+
+.results-group-filter-choice-name {
+    font-size: 0.82rem;
+    color: #1f426d;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.results-group-filter-choice-count {
+    min-width: 22px;
+    text-align: center;
+    font-size: 0.74rem;
+    color: #456085;
+    border-radius: 999px;
+    border: 1px solid rgba(17, 72, 148, 0.22);
+    background: rgba(23, 118, 255, 0.1);
+    padding: 1px 6px;
+}
+
 .results-athlete-choice {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -473,6 +536,20 @@ select {
 .results-athlete-choice-name {
     font-size: 0.86rem;
     color: #1f426d;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.results-athlete-choice-main {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.results-athlete-choice-meta {
+    font-size: 0.74rem;
+    color: #5b7190;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

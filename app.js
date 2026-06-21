@@ -49,10 +49,12 @@ const state = {
   selectedDisciplineKey: "",
   requirements: null,
   requirementFile: "",
-  digitalExportFormat: "groupPerformanceXlsx",
+  digitalExportFormat: "fullJson",
   digitalExportScope: "all",
-  digitalExportGroupId: "",
+  digitalExportGroupIds: [],
   digitalExportAthleteIds: [],
+  digitalExportAthleteGroupFilterIds: [],
+  flowTextExportMode: "full",
   importDetectedType: "",
   importDetectedFileName: "",
   importDetectedMessage: "",
@@ -157,16 +159,22 @@ const cancelGroupModalButton = document.getElementById("cancel-group-modal-btn")
 
 const installAppButton = document.getElementById("install-app-btn");
 const toast = document.getElementById("toast");
-const exportFullButton = document.getElementById("export-full-btn");
-const exportDigitalButton = document.getElementById("export-digital-btn");
+const exportRunButton = document.getElementById("export-run-btn");
 const exportDigitalFormatSelect = document.getElementById("export-digital-format-select");
+const exportDigitalScopeWrap = document.getElementById("export-digital-scope-wrap");
 const exportDigitalScopeSelect = document.getElementById("export-digital-scope-select");
 const exportDigitalGroupWrap = document.getElementById("export-digital-group-wrap");
 const exportDigitalGroupSelect = document.getElementById("export-digital-group-select");
+const exportFlowTextModeWrap = document.getElementById("export-flow-text-mode-wrap");
+const exportFlowTextModeSelect = document.getElementById("export-flow-text-mode-select");
 const exportDigitalAthletesWrap = document.getElementById("export-digital-athletes-wrap");
 const exportDigitalAthleteSelection = document.getElementById("export-digital-athlete-selection");
 const exportDigitalAthletesAllButton = document.getElementById("export-digital-athletes-all-btn");
 const exportDigitalAthletesNoneButton = document.getElementById("export-digital-athletes-none-btn");
+const exportDigitalAthletesInvertButton = document.getElementById("export-digital-athletes-invert-btn");
+const exportGroupFilterAllButton = document.getElementById("export-group-filter-all-btn");
+const exportGroupFilterNoneButton = document.getElementById("export-group-filter-none-btn");
+const exportSelectionGroupFilter = document.getElementById("export-selection-group-filter");
 const importFileInput = document.getElementById("import-file-input");
 const importRunButton = document.getElementById("import-run-btn");
 const importDetectedFormat = document.getElementById("import-detected-format");
@@ -1488,9 +1496,9 @@ function renderResultsSummaryStats() {
 }
 
 function ensureDigitalExportSelectionConsistency() {
-  const validFormats = new Set(["groupCreateXlsx", "groupPerformanceXlsx"]);
+  const validFormats = new Set(["fullJson", "groupCreateXlsx", "groupPerformanceXlsx", "flowText"]);
   if (!validFormats.has(state.digitalExportFormat)) {
-    state.digitalExportFormat = "groupPerformanceXlsx";
+    state.digitalExportFormat = "fullJson";
   }
 
   const validScopes = new Set(["all", "group", "athletes"]);
@@ -1499,14 +1507,27 @@ function ensureDigitalExportSelectionConsistency() {
   }
 
   const validGroupIds = new Set(state.groups.map((group) => group.id));
-  if (!validGroupIds.has(state.digitalExportGroupId)) {
-    state.digitalExportGroupId = state.groups[0]?.id || "";
+  state.digitalExportGroupIds = (Array.isArray(state.digitalExportGroupIds) ? state.digitalExportGroupIds : [])
+    .map((groupId) => normalizeText(groupId))
+    .filter((groupId) => validGroupIds.has(groupId));
+
+  if (state.groups.length > 0 && state.digitalExportGroupIds.length === 0) {
+    state.digitalExportGroupIds = [state.groups[0].id];
   }
 
   const validAthleteIds = new Set(state.athletes.map((athlete) => athlete.id));
   state.digitalExportAthleteIds = (Array.isArray(state.digitalExportAthleteIds) ? state.digitalExportAthleteIds : [])
     .map((athleteId) => normalizeText(athleteId))
     .filter((athleteId) => validAthleteIds.has(athleteId));
+
+  state.digitalExportAthleteGroupFilterIds = (Array.isArray(state.digitalExportAthleteGroupFilterIds) ? state.digitalExportAthleteGroupFilterIds : [])
+    .map((groupId) => normalizeText(groupId))
+    .filter((groupId) => validGroupIds.has(groupId));
+
+  const validFlowTextModes = new Set(["full", "compactBestOnly"]);
+  if (!validFlowTextModes.has(state.flowTextExportMode)) {
+    state.flowTextExportMode = "full";
+  }
 }
 
 function renderExportDigitalGroupOptions() {
@@ -1514,7 +1535,7 @@ function renderExportDigitalGroupOptions() {
     return;
   }
 
-  const previousValue = normalizeText(state.digitalExportGroupId);
+  const previousSet = new Set((Array.isArray(state.digitalExportGroupIds) ? state.digitalExportGroupIds : []).map((groupId) => normalizeText(groupId)).filter(Boolean));
   exportDigitalGroupSelect.innerHTML = "";
 
   if (state.groups.length === 0) {
@@ -1522,7 +1543,7 @@ function renderExportDigitalGroupOptions() {
     option.value = "";
     option.textContent = "Keine Gruppen vorhanden";
     exportDigitalGroupSelect.append(option);
-    state.digitalExportGroupId = "";
+    state.digitalExportGroupIds = [];
     return;
   }
 
@@ -1534,9 +1555,14 @@ function renderExportDigitalGroupOptions() {
     exportDigitalGroupSelect.append(option);
   }
 
-  const hasPrevious = sortedGroups.some((group) => group.id === previousValue);
-  state.digitalExportGroupId = hasPrevious ? previousValue : sortedGroups[0].id;
-  exportDigitalGroupSelect.value = state.digitalExportGroupId;
+  const selectedIds = sortedGroups
+    .filter((group) => previousSet.has(group.id))
+    .map((group) => group.id);
+  state.digitalExportGroupIds = selectedIds.length > 0 ? selectedIds : [sortedGroups[0].id];
+
+  for (const option of Array.from(exportDigitalGroupSelect.options)) {
+    option.selected = state.digitalExportGroupIds.includes(option.value);
+  }
 }
 
 function renderExportDigitalAthleteSelection() {
@@ -1546,12 +1572,12 @@ function renderExportDigitalAthleteSelection() {
 
   exportDigitalAthleteSelection.innerHTML = "";
   const selectedIdSet = new Set((Array.isArray(state.digitalExportAthleteIds) ? state.digitalExportAthleteIds : []).map((athleteId) => normalizeText(athleteId)).filter(Boolean));
-  const sortedAthletes = getSortedAthletesByDisplayName(state.athletes);
+  const sortedAthletes = getVisibleAthletesForManualExportSelection();
 
   if (sortedAthletes.length === 0) {
     const emptyNote = document.createElement("p");
     emptyNote.className = "group-empty-note";
-    emptyNote.textContent = "Noch keine Athleten vorhanden.";
+    emptyNote.textContent = state.athletes.length === 0 ? "Noch keine Athleten vorhanden." : "Keine Athleten fuer die gewaehlten Gruppenfilter sichtbar.";
     exportDigitalAthleteSelection.append(emptyNote);
     return;
   }
@@ -1574,37 +1600,199 @@ function renderExportDigitalAthleteSelection() {
       state.digitalExportAthleteIds = Array.from(currentSet);
     });
 
+    const main = document.createElement("div");
+    main.className = "results-athlete-choice-main";
+
     const name = document.createElement("span");
     name.className = "results-athlete-choice-name";
     name.textContent = athleteDisplayName(athlete) || "Unbenannter Athlet";
+
+    const groupMeta = document.createElement("span");
+    groupMeta.className = "results-athlete-choice-meta";
+    const groupNames = getGroupNamesForAthlete(athlete.id);
+    groupMeta.textContent = groupNames.length > 0 ? groupNames.join(" | ") : "Ohne Gruppe";
+
+    main.append(name, groupMeta);
 
     const code = document.createElement("span");
     code.className = "results-athlete-choice-code";
     code.textContent = athleteCode(athlete);
 
-    label.append(checkbox, name, code);
+    label.append(checkbox, main, code);
     exportDigitalAthleteSelection.append(label);
   }
+
+  const summary = document.createElement("p");
+  summary.className = "form-subnote";
+  const selectedVisibleCount = sortedAthletes.filter((athlete) => selectedIdSet.has(athlete.id)).length;
+  summary.textContent = `${selectedVisibleCount} von ${sortedAthletes.length} sichtbaren Athleten ausgewaehlt.`;
+  exportDigitalAthleteSelection.append(summary);
 }
 
 function updateDigitalExportScopeVisibility() {
+  const format = normalizeText(state.digitalExportFormat) || "fullJson";
+  const hasScopedExport = format !== "fullJson";
+  const isFlowTextExport = format === "flowText";
   const scope = normalizeText(state.digitalExportScope) || "all";
+
+  if (exportDigitalScopeWrap) {
+    exportDigitalScopeWrap.hidden = !hasScopedExport;
+  }
+
   if (exportDigitalGroupWrap) {
-    exportDigitalGroupWrap.hidden = scope !== "group";
+    exportDigitalGroupWrap.hidden = !hasScopedExport || scope !== "group";
+  }
+
+  if (exportFlowTextModeWrap) {
+    exportFlowTextModeWrap.hidden = !isFlowTextExport;
   }
 
   if (exportDigitalAthletesWrap) {
-    exportDigitalAthletesWrap.hidden = scope !== "athletes";
+    exportDigitalAthletesWrap.hidden = !hasScopedExport || scope !== "athletes";
   }
 }
 
 function selectAllDigitalExportAthletes() {
-  state.digitalExportAthleteIds = state.athletes.map((athlete) => athlete.id);
+  const visibleAthletes = getVisibleAthletesForManualExportSelection();
+  const nextSelection = new Set((Array.isArray(state.digitalExportAthleteIds) ? state.digitalExportAthleteIds : []).map((athleteId) => normalizeText(athleteId)).filter(Boolean));
+  for (const athlete of visibleAthletes) {
+    nextSelection.add(athlete.id);
+  }
+
+  state.digitalExportAthleteIds = Array.from(nextSelection);
   renderExportDigitalAthleteSelection();
 }
 
 function clearDigitalExportAthletesSelection() {
-  state.digitalExportAthleteIds = [];
+  const visibleAthleteIds = new Set(getVisibleAthletesForManualExportSelection().map((athlete) => athlete.id));
+  state.digitalExportAthleteIds = (Array.isArray(state.digitalExportAthleteIds) ? state.digitalExportAthleteIds : [])
+    .map((athleteId) => normalizeText(athleteId))
+    .filter((athleteId) => athleteId && !visibleAthleteIds.has(athleteId));
+  renderExportDigitalAthleteSelection();
+}
+
+function invertDigitalExportAthletesSelection() {
+  const visibleAthletes = getVisibleAthletesForManualExportSelection();
+  const nextSelection = new Set((Array.isArray(state.digitalExportAthleteIds) ? state.digitalExportAthleteIds : []).map((athleteId) => normalizeText(athleteId)).filter(Boolean));
+
+  for (const athlete of visibleAthletes) {
+    if (nextSelection.has(athlete.id)) {
+      nextSelection.delete(athlete.id);
+    } else {
+      nextSelection.add(athlete.id);
+    }
+  }
+
+  state.digitalExportAthleteIds = Array.from(nextSelection);
+  renderExportDigitalAthleteSelection();
+}
+
+function getGroupNamesForAthlete(athleteId) {
+  const normalizedAthleteId = normalizeText(athleteId);
+  if (!normalizedAthleteId) {
+    return [];
+  }
+
+  return state.groups
+    .filter((group) => (group.athleteIds || []).includes(normalizedAthleteId))
+    .map((group) => normalizeText(group.name))
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right, "de"));
+}
+
+function getVisibleAthletesForManualExportSelection() {
+  const selectedGroupFilterIds = (Array.isArray(state.digitalExportAthleteGroupFilterIds) ? state.digitalExportAthleteGroupFilterIds : [])
+    .map((groupId) => normalizeText(groupId))
+    .filter(Boolean);
+
+  if (selectedGroupFilterIds.length === 0) {
+    return getSortedAthletesByDisplayName(state.athletes);
+  }
+
+  const memberIds = new Set();
+  for (const groupId of selectedGroupFilterIds) {
+    const group = getGroupById(groupId);
+    if (!group) {
+      continue;
+    }
+
+    for (const athleteId of group.athleteIds || []) {
+      memberIds.add(normalizeText(athleteId));
+    }
+  }
+
+  return getSortedAthletesByDisplayName(state.athletes.filter((athlete) => memberIds.has(athlete.id)));
+}
+
+function renderExportAthleteGroupFilters() {
+  if (!exportSelectionGroupFilter) {
+    return;
+  }
+
+  exportSelectionGroupFilter.innerHTML = "";
+
+  const selectedSet = new Set((Array.isArray(state.digitalExportAthleteGroupFilterIds) ? state.digitalExportAthleteGroupFilterIds : [])
+    .map((groupId) => normalizeText(groupId))
+    .filter(Boolean));
+  const sortedGroups = [...state.groups].sort((left, right) => normalizeText(left.name).localeCompare(normalizeText(right.name), "de"));
+
+  if (sortedGroups.length === 0) {
+    const emptyNote = document.createElement("p");
+    emptyNote.className = "group-empty-note";
+    emptyNote.textContent = "Noch keine Gruppen vorhanden.";
+    exportSelectionGroupFilter.append(emptyNote);
+    return;
+  }
+
+  for (const group of sortedGroups) {
+    const label = document.createElement("label");
+    label.className = "results-group-filter-choice";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = group.id;
+    checkbox.checked = selectedSet.has(group.id);
+
+    const memberCount = Array.isArray(group.athleteIds) ? group.athleteIds.length : 0;
+
+    const text = document.createElement("span");
+    text.className = "results-group-filter-choice-name";
+    text.textContent = normalizeText(group.name) || "Unbenannte Gruppe";
+
+    const count = document.createElement("span");
+    count.className = "results-group-filter-choice-count";
+    count.textContent = String(memberCount);
+
+    checkbox.addEventListener("change", () => {
+      const currentSet = new Set((Array.isArray(state.digitalExportAthleteGroupFilterIds) ? state.digitalExportAthleteGroupFilterIds : [])
+        .map((groupId) => normalizeText(groupId))
+        .filter(Boolean));
+      if (checkbox.checked) {
+        currentSet.add(group.id);
+      } else {
+        currentSet.delete(group.id);
+      }
+
+      state.digitalExportAthleteGroupFilterIds = Array.from(currentSet);
+      renderExportAthleteGroupFilters();
+      renderExportDigitalAthleteSelection();
+    });
+
+    label.append(checkbox, text, count);
+    label.classList.toggle("is-selected", checkbox.checked);
+    exportSelectionGroupFilter.append(label);
+  }
+}
+
+function selectAllExportGroupFilters() {
+  state.digitalExportAthleteGroupFilterIds = state.groups.map((group) => group.id);
+  renderExportAthleteGroupFilters();
+  renderExportDigitalAthleteSelection();
+}
+
+function clearExportGroupFilters() {
+  state.digitalExportAthleteGroupFilterIds = [];
+  renderExportAthleteGroupFilters();
   renderExportDigitalAthleteSelection();
 }
 
@@ -1781,22 +1969,38 @@ function renderResultsToolsState() {
     exportDigitalScopeSelect.value = state.digitalExportScope;
   }
 
+  if (exportFlowTextModeSelect) {
+    exportFlowTextModeSelect.value = state.flowTextExportMode;
+  }
+
   renderResultsSummaryStats();
   renderExportDigitalGroupOptions();
+  renderExportAthleteGroupFilters();
   renderExportDigitalAthleteSelection();
   updateDigitalExportScopeVisibility();
   renderImportControlsState();
 }
 
-function getDigitalExportAthletes() {
+function getScopedExportAthletes() {
   const scope = normalizeText(state.digitalExportScope) || "all";
   if (scope === "group") {
-    const group = getGroupById(state.digitalExportGroupId);
-    if (!group) {
+    const groupIds = (Array.isArray(state.digitalExportGroupIds) ? state.digitalExportGroupIds : []).map((groupId) => normalizeText(groupId)).filter(Boolean);
+    if (groupIds.length === 0) {
       return [];
     }
 
-    const groupMemberIds = new Set(group.athleteIds || []);
+    const groupMemberIds = new Set();
+    for (const groupId of groupIds) {
+      const group = getGroupById(groupId);
+      if (!group) {
+        continue;
+      }
+
+      for (const athleteId of group.athleteIds || []) {
+        groupMemberIds.add(normalizeText(athleteId));
+      }
+    }
+
     return state.athletes.filter((athlete) => groupMemberIds.has(athlete.id));
   }
 
@@ -1808,11 +2012,22 @@ function getDigitalExportAthletes() {
   return state.athletes;
 }
 
-function getDigitalExportScopeLabel() {
+function getExportScopeLabel() {
   const scope = normalizeText(state.digitalExportScope) || "all";
   if (scope === "group") {
-    const group = getGroupById(state.digitalExportGroupId);
-    return group ? `Gruppe ${group.name}` : "Gruppe";
+    const groups = (Array.isArray(state.digitalExportGroupIds) ? state.digitalExportGroupIds : [])
+      .map((groupId) => getGroupById(groupId))
+      .filter(Boolean);
+
+    if (groups.length === 0) {
+      return "Gruppen";
+    }
+
+    if (groups.length === 1) {
+      return `Gruppe ${groups[0].name}`;
+    }
+
+    return `${groups.length} Gruppen`;
   }
 
   if (scope === "athletes") {
@@ -1889,7 +2104,7 @@ function getDigitalExportFormatLabel() {
 }
 
 async function exportSportabzeichenDigitalCsv() {
-  const exportAthletes = getDigitalExportAthletes();
+  const exportAthletes = getScopedExportAthletes();
   if (exportAthletes.length === 0) {
     showToast("Keine Athleten fuer den gewaehlten Exportumfang vorhanden.");
     return;
@@ -1907,7 +2122,7 @@ async function exportSportabzeichenDigitalCsv() {
     return;
   }
 
-  const scopeLabel = getDigitalExportScopeLabel();
+  const scopeLabel = getExportScopeLabel();
   const formatLabel = getDigitalExportFormatLabel();
   const skippedCount = exportResult.skippedAthletes.length;
   const skipHint = skippedCount > 0 ? `\n\n${skippedCount} Athleten mit fehlenden Pflichtfeldern werden ausgelassen.` : "";
@@ -1951,6 +2166,119 @@ async function exportSportabzeichenDigitalCsv() {
   }
 }
 
+function buildFlowTextExportContent(athletesForExport = state.athletes, options = {}) {
+  const compactBestOnly = options.compactBestOnly === true;
+  const sortedAthletes = getSortedAthletesByDisplayName(athletesForExport || []);
+  const lines = [];
+
+  lines.push("SPORTABZEICHEN EXPORT - FLIESS TEXT");
+  lines.push(`Exportiert am: ${formatDateTime(new Date().toISOString())}`);
+  lines.push(`Exportumfang: ${getExportScopeLabel()}`);
+  lines.push(`Modus: ${compactBestOnly ? "Nur Bestleistungen" : "Alles"}`);
+  lines.push(`Athleten: ${sortedAthletes.length}`);
+  lines.push("");
+
+  if (sortedAthletes.length === 0) {
+    lines.push("Keine Athleten im gewaehlten Exportumfang vorhanden.");
+    return lines.join("\n");
+  }
+
+  for (const athlete of sortedAthletes) {
+    const requirementGroup = getRequirementGroupForAthlete(athlete);
+    const categoryLevels = getAthleteCategoryLevels(athlete, requirementGroup);
+    const overallAwardLevel = getOverallAwardLevel(categoryLevels);
+    const athleteGroups = getGroupNamesForAthlete(athlete.id);
+
+    lines.push(`Name: ${athleteDisplayName(athlete) || "Unbenannter Athlet"}`);
+    lines.push(`Code: ${athleteCode(athlete)} | Geburtsdatum: ${normalizeText(athlete.birthDate) || "-"} | Geschlecht: ${normalizeText(athlete.gender) || "-"}`);
+    lines.push(`Gruppen: ${athleteGroups.length > 0 ? athleteGroups.join(", ") : "Keine"}`);
+    lines.push(`Gesamtstufe: ${overallAwardLevel}`);
+    lines.push(`Kategorien: Ausdauer ${categoryLevels.Ausdauer || "-"}, Schnelligkeit ${categoryLevels.Schnelligkeit || "-"}, Kraft ${categoryLevels.Kraft || "-"}, Koordination ${categoryLevels.Koordination || "-"}, Schwimmen ${categoryLevels.Schwimmen || "-"}`);
+
+    const groupedDisciplines = getRenderableDisciplineGroups(athlete, requirementGroup);
+    if (groupedDisciplines.length === 0) {
+      lines.push("Leistungen: Keine Disziplinen vorhanden.");
+      lines.push("");
+      continue;
+    }
+
+    lines.push("Leistungen:");
+
+    for (const categoryGroup of groupedDisciplines) {
+      const disciplineLines = [];
+
+      for (const descriptor of categoryGroup.disciplines) {
+        const labelParts = splitDisciplineDisplay(descriptor);
+        const disciplineLabel = labelParts.detail ? `${labelParts.title} (${labelParts.detail})` : labelParts.title;
+        const historyEntries = getDisciplineHistoryEntries(athlete, requirementGroup, descriptor)
+          .slice()
+          .sort((left, right) => new Date(right.measuredAt).getTime() - new Date(left.measuredAt).getTime());
+
+        if (compactBestOnly) {
+          if (historyEntries.length === 0) {
+            continue;
+          }
+
+          const listItemViewModel = getDisciplineListItemViewModel(athlete, requirementGroup, descriptor);
+          const bestHistoryEntry = historyEntries[0];
+          const measuredAt = formatDateTime(bestHistoryEntry.measuredAt);
+          disciplineLines.push(`    - ${disciplineLabel}: ${listItemViewModel.bestValue || "-"} | Stufe: ${listItemViewModel.bestLevel || "-"} | Beste Leistung am: ${measuredAt}`);
+          continue;
+        }
+
+        if (historyEntries.length === 0) {
+          disciplineLines.push(`    - ${disciplineLabel}: Keine Eintraege`);
+          continue;
+        }
+
+        disciplineLines.push(`    - ${disciplineLabel}:`);
+        for (const entry of historyEntries) {
+          const measuredAt = formatDateTime(entry.measuredAt);
+          const value = formatPerformanceHistoryValue(descriptor, entry, athlete, requirementGroup);
+          const level = getPerformanceHistoryLevelLabel(descriptor, entry, athlete, requirementGroup);
+          disciplineLines.push(`      * ${measuredAt} | Wert: ${value} | Stufe: ${level}`);
+        }
+      }
+
+      if (compactBestOnly && disciplineLines.length === 0) {
+        continue;
+      }
+
+      lines.push(`  [${categoryGroup.category}]`);
+      lines.push(...disciplineLines);
+    }
+
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+function exportFlowTextDataset() {
+  const exportAthletes = getScopedExportAthletes();
+  if (exportAthletes.length === 0) {
+    showToast("Keine Athleten fuer den gewaehlten Exportumfang vorhanden.");
+    return;
+  }
+
+  const scopeLabel = getExportScopeLabel();
+  const exportMode = normalizeText(state.flowTextExportMode) || "full";
+  const isCompactMode = exportMode === "compactBestOnly";
+  const modeLabel = isCompactMode ? "Nur Bestleistungen" : "Alles";
+  const confirmed = window.confirm(`Fliesstext-Export (${modeLabel}) fuer ${exportAthletes.length} Athleten (${scopeLabel}) erstellen?`);
+  if (!confirmed) {
+    return;
+  }
+
+  const timestamp = formatDateForFilename();
+  const fileName = isCompactMode
+    ? `sportabzeichen-fliess-text-kompakt-${timestamp}.txt`
+    : `sportabzeichen-fliess-text-${timestamp}.txt`;
+  const content = buildFlowTextExportContent(exportAthletes, { compactBestOnly: isCompactMode });
+  downloadTextFile(fileName, content, { mimeType: "text/plain;charset=utf-8", withBom: true });
+  showToast(`Fliesstext-Export (${modeLabel}) erstellt.`);
+}
+
 function buildFullExportPayload() {
   return {
     schemaVersion: "1.0.0",
@@ -1969,6 +2297,21 @@ function exportFullDataset() {
   const content = JSON.stringify(buildFullExportPayload(), null, 2);
   downloadTextFile(fileName, content, { mimeType: "application/json;charset=utf-8" });
   showToast("Vollstaendiger Export erstellt.");
+}
+
+function runSelectedExport() {
+  const format = normalizeText(state.digitalExportFormat) || "fullJson";
+  if (format === "fullJson") {
+    exportFullDataset();
+    return;
+  }
+
+  if (format === "flowText") {
+    exportFlowTextDataset();
+    return;
+  }
+
+  exportSportabzeichenDigitalCsv();
 }
 
 function updateImportGroupInputState() {
@@ -10491,7 +10834,8 @@ function wireEvents() {
 
   if (exportDigitalFormatSelect) {
     exportDigitalFormatSelect.addEventListener("change", () => {
-      state.digitalExportFormat = normalizeText(exportDigitalFormatSelect.value) || "groupPerformanceXlsx";
+      state.digitalExportFormat = normalizeText(exportDigitalFormatSelect.value) || "fullJson";
+      updateDigitalExportScopeVisibility();
     });
   }
 
@@ -10502,9 +10846,17 @@ function wireEvents() {
     });
   }
 
+  if (exportFlowTextModeSelect) {
+    exportFlowTextModeSelect.addEventListener("change", () => {
+      state.flowTextExportMode = normalizeText(exportFlowTextModeSelect.value) || "full";
+    });
+  }
+
   if (exportDigitalGroupSelect) {
     exportDigitalGroupSelect.addEventListener("change", () => {
-      state.digitalExportGroupId = normalizeText(exportDigitalGroupSelect.value);
+      state.digitalExportGroupIds = Array.from(exportDigitalGroupSelect.selectedOptions || [])
+        .map((option) => normalizeText(option.value))
+        .filter(Boolean);
     });
   }
 
@@ -10520,12 +10872,26 @@ function wireEvents() {
     });
   }
 
-  if (exportFullButton) {
-    exportFullButton.addEventListener("click", exportFullDataset);
+  if (exportDigitalAthletesInvertButton) {
+    exportDigitalAthletesInvertButton.addEventListener("click", () => {
+      invertDigitalExportAthletesSelection();
+    });
   }
 
-  if (exportDigitalButton) {
-    exportDigitalButton.addEventListener("click", exportSportabzeichenDigitalCsv);
+  if (exportGroupFilterAllButton) {
+    exportGroupFilterAllButton.addEventListener("click", () => {
+      selectAllExportGroupFilters();
+    });
+  }
+
+  if (exportGroupFilterNoneButton) {
+    exportGroupFilterNoneButton.addEventListener("click", () => {
+      clearExportGroupFilters();
+    });
+  }
+
+  if (exportRunButton) {
+    exportRunButton.addEventListener("click", runSelectedExport);
   }
 
   if (importCreateGroupCheckbox) {
