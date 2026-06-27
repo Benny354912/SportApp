@@ -81,7 +81,7 @@ select {
 
 .app-shell {
     width: min(100%, 100%);
-    /* width: min(960px, 100%); */
+    /* width: min(960px, 100%); */ /* Backup */
     margin: 0 auto;
     min-height: 100vh;
     padding: 14px 18px calc(var(--nav-height) + 34px);
