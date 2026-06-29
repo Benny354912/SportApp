@@ -70,11 +70,25 @@
                     <div id="athlete-category-status-row" class="category-status-row"></div>
                   </div>
 
-                  <button id="edit-athlete-btn" type="button" class="title-edit-btn" aria-label="Athlet bearbeiten" title="Athlet bearbeiten">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M4 20h4l10.5-10.5a1.4 1.4 0 0 0 0-2L16.5 5a1.4 1.4 0 0 0-2 0L4 15.5V20Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
-                    </svg>
-                  </button>
+                  <div class="detail-side-actions">
+                    <button id="edit-athlete-btn" type="button" class="title-edit-btn" aria-label="Athlet bearbeiten" title="Athlet bearbeiten">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 20h4l10.5-10.5a1.4 1.4 0 0 0 0-2L16.5 5a1.4 1.4 0 0 0-2 0L4 15.5V20Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                      </svg>
+                    </button>
+                    <button id="athlete-stats-btn" type="button" class="title-edit-btn title-edit-btn--stats" aria-label="Athlet Statistik anzeigen" title="Athlet Statistik anzeigen">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 19V11M10 19V7M16 19V13M22 19V5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+                      </svg>
+                    </button>
+                    <button id="athlete-emergency-btn" type="button" class="title-edit-btn title-edit-btn--emergency" aria-label="Kontakte anzeigen" title="Kontakte anzeigen" hidden>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M7 7.5a2.5 2.5 0 1 1 5 0a2.5 2.5 0 0 1-5 0Z" fill="none" stroke="currentColor" stroke-width="1.8" />
+                        <path d="M5.5 15.5a4.1 4.1 0 0 1 8 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                        <path d="M15.5 8.5h4m-2-2v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
                 <!-- <p class="discipline-guidance">Tippe auf eine <b>Disziplin</b>, um Leistungen zu ergänzen, einzusehen oder zu korrigieren.</p> -->
@@ -120,137 +134,613 @@
           </div>
         </section>
 
-        <section id="view-results" class="view" data-view="results" aria-labelledby="results-title">
+        <section id="view-results" class="view" data-view="results" aria-label="Mehr">
           <div class="placeholder-card results-transfer-card">
-            <div class="results-hero">
-              <h2 id="results-title">Auswertung</h2>
-              <p>Daten sichern, austauschen und als Team sauber organisieren.</p>
+            <div id="more-page-panels" class="more-page-panels">
+              <section class="more-page more-page--home is-active" data-more-page-panel="home">
+                <div id="more-page-nav" class="more-page-nav" aria-label="Mehr Seiten">
+                  <button type="button" class="more-page-link" data-more-page="insights">
+                    <span class="more-page-link-title">Infos &amp; Statistiken</span>
+                    <span class="more-page-link-text">Fortschritt, fehlende Punkte und Diagramme.</span>
+                  </button>
+                  <button type="button" class="more-page-link" data-more-page="transfer">
+                    <span class="more-page-link-title">Export/Import</span>
+                    <span class="more-page-link-text">Daten sichern, austauschen und wieder einspielen.</span>
+                  </button>
+                  <button type="button" class="more-page-link" data-more-page="mailer">
+                    <span class="more-page-link-title">Mail verteiler</span>
+                    <span class="more-page-link-text">Kontaktmails sammeln und kopieren.</span>
+                  </button>
+                  <button type="button" class="more-page-link" data-more-page="merge">
+                    <span class="more-page-link-title">Duplikate &amp; Merge</span>
+                    <span class="more-page-link-text">Vermutete Duplikate finden und Daten zusammenfuehren.</span>
+                  </button>
+                  <button type="button" class="more-page-link" data-more-page="custom">
+                    <span class="more-page-link-title">Eigene Disziplinen</span>
+                    <span class="more-page-link-text">Eigene Disziplinen anlegen, bearbeiten und loeschen.</span>
+                  </button>
+                  <button type="button" class="more-page-link" data-more-page="certificate">
+                    <span class="more-page-link-title">Urkunden Export (BETA - EXPERIMENTELL)</span>
+                    <span class="more-page-link-text">Serienbrief CSV und direkte Druck-Urkunden mit Designs.</span>
+                  </button>
+                </div>
 
-              <div class="results-kpi-grid" aria-label="Datenuebersicht">
-                <article class="results-kpi">
-                  <span id="results-total-athletes" class="results-kpi-value">0</span>
-                  <span class="results-kpi-label">Athleten</span>
-                </article>
-                <article class="results-kpi">
-                  <span id="results-total-groups" class="results-kpi-value">0</span>
-                  <span class="results-kpi-label">Gruppen</span>
-                </article>
-                <article class="results-kpi">
-                  <span id="results-total-performances" class="results-kpi-value">0</span>
-                  <span class="results-kpi-label">Leistungen</span>
-                </article>
-              </div>
-            </div>
+                <section class="results-disclaimer" aria-labelledby="results-disclaimer-title">
+                  <h3 id="results-disclaimer-title">Hinweis / Disclaimer / Copyright 2026</h3>
+                  <p>Author: Benny354912</p>
+                  <ul class="results-disclaimer-list">
+                    <li>Keine Garantie/Gewaehr auf Funktionalitaet oder Richtigkeit.</li>
+                    <li>Privatprojekt. Keine Haftung fuer Datenverlust oder andere Schaeden, die von/durch oder in Verbindung mit dieser App/Website entstehen. Nutzung auf eigene Verantwortung.</li>
+                    <li>Dieses Projekt ist quelloffen und kann auf GitHub eingesehen werden. Dort koennen auch Fehler und Verbesserungen gemeldet werden.</li>
+                    <li>Die Nutzung ist kostenlos und ohne Werbung.</li>
+                  </ul>
+                  <p>Vielen Dank fuer die Nutzung.</p>
+                </section>
+              </section>
 
-            <div class="results-transfer-grid">
-              <section class="results-transfer-block" aria-labelledby="results-export-title">
-                <h3 id="results-export-title">Export</h3>
-                <p class="form-subnote">Exportart auswaehlen, Umfang filtern und mit einem Klick exportieren.</p>
+              <section class="more-page" data-more-page-panel="insights" hidden>
+                <div class="more-page-header">
+                  <button type="button" class="icon-btn more-page-back" data-more-action="back-home" aria-label="Zurueck zur Mehr-Seitenliste">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M15 6L9 12L15 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                  <h3>Infos &amp; Statistiken</h3>
+                </div>
 
-                <label class="results-file-input" for="export-digital-format-select">
-                  <span>Sportabzeichen-Digital Exportart</span>
-                  <select id="export-digital-format-select">
-                    <option value="fullJson">Vollstaendig (JSON)</option>
-                    <option value="groupCreateXlsx">Gruppe anlegen (XLSX-Vorlage)</option>
-                    <option value="groupPerformanceXlsx">Gruppe mit Leistungen (XLSX-Vorlage)</option>
-                    <option value="flowText">Fliess Text (.txt)</option>
-                  </select>
-                </label>
+                <div class="more-insights-controls">
+                  <label class="results-file-input" for="more-insights-scope-select">
+                    <span>Auswahl</span>
+                    <select id="more-insights-scope-select">
+                      <option value="all">Alle Athleten</option>
+                    </select>
+                  </label>
+                  <p id="more-insights-group-count" class="form-subnote">Gruppen: 0</p>
+                </div>
 
-                <label id="export-digital-scope-wrap" class="results-file-input" for="export-digital-scope-select">
-                  <span>Exportumfang</span>
-                  <select id="export-digital-scope-select">
-                    <option value="all">Alle Athleten</option>
-                    <option value="group">Gruppen</option>
-                    <option value="athletes">Ausgewaehlte Athleten</option>
-                  </select>
-                </label>
+                <div class="results-kpi-grid" aria-label="Datenuebersicht">
+                  <article class="results-kpi">
+                    <span id="results-total-athletes" class="results-kpi-value">0</span>
+                    <span class="results-kpi-label">Athleten</span>
+                  </article>
+                  <article class="results-kpi">
+                    <span id="results-total-groups" class="results-kpi-value">0</span>
+                    <span class="results-kpi-label">Gruppen</span>
+                  </article>
+                  <article class="results-kpi">
+                    <span id="results-total-performances" class="results-kpi-value">0</span>
+                    <span class="results-kpi-label">Leistungen</span>
+                  </article>
+                </div>
 
-                <label id="export-digital-group-wrap" class="results-file-input" for="export-digital-group-select" hidden>
-                  <span>Gruppen (Einzel- oder Mehrfachauswahl)</span>
-                  <select id="export-digital-group-select" multiple size="6"></select>
-                </label>
-
-                <label id="export-flow-text-mode-wrap" class="results-file-input" for="export-flow-text-mode-select" hidden>
-                  <span>Fliesstext Exportumfang</span>
-                  <select id="export-flow-text-mode-select">
-                    <option value="full">Alles</option>
-                    <option value="compactBestOnly">Nur Bestleistungen</option>
-                  </select>
-                </label>
-
-                <section id="export-digital-athletes-wrap" class="results-athlete-wrap" aria-labelledby="export-digital-athletes-title" hidden>
-                  <div class="results-athlete-wrap-head">
-                    <p id="export-digital-athletes-title" class="form-note">Athletenauswahl</p>
-                    <div class="results-inline-actions">
-                      <button id="export-digital-athletes-all-btn" type="button" class="ghost-btn">Alle sichtbaren</button>
-                      <button id="export-digital-athletes-none-btn" type="button" class="ghost-btn">Keine sichtbaren</button>
-                      <button id="export-digital-athletes-invert-btn" type="button" class="ghost-btn">Umkehren</button>
+                <div class="more-insights-grid">
+                  <section class="results-transfer-block" aria-label="Erreichte Leistungen">
+                    <h3>Erreichte Leistungen</h3>
+                    <div class="more-missing-legend">
+                      <span class="more-missing-legend-item more-missing-legend-item--none">Leer</span>
+                      <span class="more-missing-legend-item more-missing-legend-item--bronze">Bronze</span>
+                      <span class="more-missing-legend-item more-missing-legend-item--silber">Silber</span>
+                      <span class="more-missing-legend-item more-missing-legend-item--gold">Gold</span>
                     </div>
-                  </div>
-
-                  <section class="results-group-filter-wrap" aria-labelledby="export-selection-group-filter-title">
-                    <div class="results-athlete-wrap-head">
-                      <p id="export-selection-group-filter-title" class="form-note">Filter nach Gruppen</p>
-                      <div class="results-inline-actions">
-                        <button id="export-group-filter-all-btn" type="button" class="ghost-btn">Alle Gruppen</button>
-                        <button id="export-group-filter-none-btn" type="button" class="ghost-btn">Keine Gruppe</button>
-                      </div>
-                    </div>
-                    <div id="export-selection-group-filter" class="results-group-filter-list"></div>
+                    <div id="more-missing-chart" class="more-chart-host"></div>
                   </section>
 
-                  <div id="export-digital-athlete-selection" class="results-athlete-selection"></div>
-                </section>
+                  <section class="results-transfer-block" aria-label="Altersklassen">
+                    <h3>Altersklassen</h3>
+                    <div id="more-age-chart" class="more-chart-host"></div>
+                  </section>
 
-                <div class="results-transfer-actions">
-                  <button id="export-run-btn" type="button" class="primary-btn">Export</button>
+                  <section class="results-transfer-block" aria-label="Aktivitaet">
+                    <div class="more-activity-header">
+                      <h3>Aktivitaet</h3>
+                      <div id="more-activity-range-chips" class="more-activity-range-chips" role="group" aria-label="Aktivitaetszeitraum">
+                        <button type="button" class="more-activity-chip" data-activity-range="week">1 Woche</button>
+                        <button type="button" class="more-activity-chip" data-activity-range="month">1 Monat</button>
+                        <button type="button" class="more-activity-chip" data-activity-range="year">1 Jahr</button>
+                        <button type="button" class="more-activity-chip is-active" data-activity-range="all">Alles</button>
+                      </div>
+                    </div>
+                    <div id="more-activity-chart" class="more-chart-host"></div>
+                  </section>
+
+                  <section class="results-transfer-block" aria-label="Staerken Radar">
+                    <h3>Staerken (Radar)</h3>
+                    <div id="more-strength-chart" class="more-chart-host"></div>
+                  </section>
                 </div>
               </section>
 
-              <section class="results-transfer-block" aria-labelledby="results-import-title">
-                <h3 id="results-import-title">Import</h3>
-                <p class="form-subnote">Unterstuetzt Vollimporte, Sportabzeichen-Digital-CSV und einfache CSV-Dateien.</p>
+              <section class="more-page" data-more-page-panel="transfer" hidden>
+                <div class="more-page-header">
+                  <button type="button" class="icon-btn more-page-back" data-more-action="back-home" aria-label="Zurueck zur Mehr-Seitenliste">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M15 6L9 12L15 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                  <h3>Export/Import</h3>
+                </div>
 
-                <p id="import-detected-format" class="results-detected-format" aria-live="polite">Noch keine Datei ausgewaehlt.</p>
+                <div class="results-transfer-grid">
+                  <section class="results-transfer-block" aria-labelledby="results-export-title">
+                    <h3 id="results-export-title">Export</h3>
+                    <p class="form-subnote">Exportart auswaehlen, Umfang filtern und mit einem Klick exportieren.</p>
 
-                <label class="results-file-input">
-                  <span>Datei</span>
-                  <input id="import-file-input" type="file" accept=".json,.csv,text/csv,application/json" />
-                </label>
+                    <label class="results-file-input" for="export-digital-format-select">
+                      <span>Sportabzeichen-Digital Exportart</span>
+                      <select id="export-digital-format-select">
+                        <option value="fullJson">Vollstaendig (JSON)</option>
+                        <option value="groupCreateXlsx">Gruppe anlegen (XLSX-Vorlage)</option>
+                        <option value="groupPerformanceXlsx">Gruppe mit Leistungen (XLSX-Vorlage)</option>
+                        <option value="appleCsv">Sportabzeichen App iOS/Apple (CSV)</option>
+                        <option value="flowText">Fliess Text (.txt)</option>
+                      </select>
+                    </label>
 
-                <section id="import-simple-group-controls" class="results-import-simple-controls" hidden>
-                  <label class="results-import-option">
-                    <input id="import-create-group-checkbox" type="checkbox" />
-                    <span>Importierte Athleten direkt einer Gruppe zuordnen</span>
-                  </label>
+                    <label id="export-digital-scope-wrap" class="results-file-input" for="export-digital-scope-select">
+                      <span>Exportumfang</span>
+                      <select id="export-digital-scope-select">
+                        <option value="all">Alle Athleten</option>
+                        <option value="group">Gruppen</option>
+                        <option value="athletes">Ausgewaehlte Athleten</option>
+                      </select>
+                    </label>
 
-                  <label id="import-group-select-wrap" class="results-file-input" hidden>
-                    <span>Gruppe</span>
-                    <select id="import-group-select"></select>
-                  </label>
+                    <label id="export-digital-group-wrap" class="results-file-input" for="export-digital-group-select" hidden>
+                      <span>Gruppen (Einzel- oder Mehrfachauswahl)</span>
+                      <select id="export-digital-group-select" multiple size="6"></select>
+                    </label>
+
+                    <label id="export-flow-text-mode-wrap" class="results-file-input" for="export-flow-text-mode-select" hidden>
+                      <span>Fliesstext Exportumfang</span>
+                      <select id="export-flow-text-mode-select">
+                        <option value="full">Alles</option>
+                        <option value="compactBestOnly">Nur Bestleistungen</option>
+                      </select>
+                    </label>
+
+                    <section id="export-digital-athletes-wrap" class="results-athlete-wrap" aria-labelledby="export-digital-athletes-title" hidden>
+                      <div class="results-athlete-wrap-head">
+                        <p id="export-digital-athletes-title" class="form-note">Athletenauswahl</p>
+                        <div class="results-inline-actions">
+                          <button id="export-digital-athletes-all-btn" type="button" class="ghost-btn">Alle sichtbaren</button>
+                          <button id="export-digital-athletes-none-btn" type="button" class="ghost-btn">Keine sichtbaren</button>
+                          <button id="export-digital-athletes-invert-btn" type="button" class="ghost-btn">Umkehren</button>
+                        </div>
+                      </div>
+
+                      <section class="results-group-filter-wrap" aria-labelledby="export-selection-group-filter-title">
+                        <div class="results-athlete-wrap-head">
+                          <p id="export-selection-group-filter-title" class="form-note">Filter nach Gruppen</p>
+                          <div class="results-inline-actions">
+                            <button id="export-group-filter-all-btn" type="button" class="ghost-btn">Alle Gruppen</button>
+                            <button id="export-group-filter-none-btn" type="button" class="ghost-btn">Keine Gruppe</button>
+                          </div>
+                        </div>
+                        <div id="export-selection-group-filter" class="results-group-filter-list"></div>
+                      </section>
+
+                      <div id="export-digital-athlete-selection" class="results-athlete-selection"></div>
+                    </section>
+
+                    <div class="results-transfer-actions">
+                      <button id="export-run-btn" type="button" class="primary-btn">Export</button>
+                    </div>
+                  </section>
+
+                  <section class="results-transfer-block" aria-labelledby="results-import-title">
+                    <h3 id="results-import-title">Import</h3>
+                    <p class="form-subnote">Unterstuetzt Vollimporte, Sportabzeichen-Digital-CSV, Sportabzeichen App iOS/Apple CSV und einfache CSV-Dateien. Mehrere Dateien gleichzeitig sind moeglich.</p>
+
+                    <p id="import-detected-format" class="results-detected-format" aria-live="polite">Noch keine Datei ausgewaehlt.</p>
+
+                    <label class="results-file-input">
+                      <span>Dateien</span>
+                      <input id="import-file-input" type="file" accept=".json,.csv,text/csv,application/json" multiple />
+                    </label>
+
+                    <section id="import-preview-wrap" class="results-athlete-wrap" aria-labelledby="import-preview-title" hidden>
+                      <div class="results-athlete-wrap-head">
+                        <p id="import-preview-title" class="form-note">Import-Vorschau</p>
+                      </div>
+                      <div id="import-preview-list" class="import-preview-list"></div>
+                    </section>
+
+                    <section id="import-simple-group-controls" class="results-import-simple-controls" hidden>
+                      <label class="results-import-option">
+                        <input id="import-create-group-checkbox" type="checkbox" />
+                        <span>Importierte Athleten direkt einer Gruppe zuordnen</span>
+                      </label>
+
+                      <label id="import-group-select-wrap" class="results-file-input" hidden>
+                        <span>Gruppe (neu aus Dateiname oder vorhanden)</span>
+                        <select id="import-group-select"></select>
+                      </label>
+                    </section>
+
+                    <button id="import-run-btn" type="button" class="primary-btn">Import ausfuehren</button>
+                  </section>
+                </div>
+              </section>
+
+              <section class="more-page" data-more-page-panel="mailer" hidden>
+                <div class="more-page-header">
+                  <button type="button" class="icon-btn more-page-back" data-more-action="back-home" aria-label="Zurueck zur Mehr-Seitenliste">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M15 6L9 12L15 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                  <h3>Mail verteiler</h3>
+                </div>
+
+                <div class="results-transfer-grid">
+                  <section class="results-transfer-block" aria-labelledby="mailer-title">
+                    <h3 id="mailer-title">Empfaenger sammeln</h3>
+                    <p class="form-subnote">Mails auswaehlen, zusammenstellen und im gewuenschten Format kopieren.</p>
+
+                    <label class="results-file-input" for="mailer-scope-select">
+                      <span>Quelle</span>
+                      <select id="mailer-scope-select">
+                        <option value="all">Alle Athleten</option>
+                        <option value="current">Aktuelle Gruppenansicht</option>
+                        <option value="groups">Mehrere Gruppen</option>
+                        <option value="athletes">Einzelne Athleten</option>
+                      </select>
+                    </label>
+
+                    <label id="mailer-group-wrap" class="results-file-input" hidden>
+                      <span>Gruppen (Mehrfachauswahl)</span>
+                      <select id="mailer-group-select" multiple size="6"></select>
+                    </label>
+
+                    <section id="mailer-athletes-wrap" class="results-athlete-wrap" hidden>
+                      <div class="results-athlete-wrap-head">
+                        <p class="form-note">Athletenauswahl</p>
+                        <div class="results-inline-actions">
+                          <button id="mailer-athletes-all-btn" type="button" class="ghost-btn">Alle</button>
+                          <button id="mailer-athletes-none-btn" type="button" class="ghost-btn">Keine</button>
+                        </div>
+                      </div>
+                      <div id="mailer-athlete-selection" class="results-athlete-selection"></div>
+                    </section>
+
+                    <label class="results-file-input" for="mailer-output">
+                      <span>Vorschau</span>
+                      <textarea id="mailer-output" rows="6" readonly placeholder="Hier erscheinen die gesammelten E-Mail Adressen."></textarea>
+                    </label>
+
+                    <p id="mailer-summary" class="form-subnote">0 E-Mail Adressen gefunden.</p>
+
+                    <div class="results-inline-actions">
+                      <button id="mailer-copy-semicolon-btn" type="button" class="primary-btn">Kopieren (;)</button>
+                      <button id="mailer-copy-comma-btn" type="button" class="ghost-btn">Kopieren (,)</button>
+                      <button id="mailer-copy-lines-btn" type="button" class="ghost-btn">Kopieren (Zeilen)</button>
+                    </div>
+
+                    <div class="results-inline-actions results-inline-actions--wrap">
+                      <button id="mailer-open-to-btn" type="button" class="secondary-btn">Oeffnen: An</button>
+                      <button id="mailer-open-cc-btn" type="button" class="secondary-btn">Oeffnen: CC</button>
+                      <button id="mailer-open-bcc-btn" type="button" class="secondary-btn">Oeffnen: BCC</button>
+                    </div>
+                  </section>
+                </div>
+              </section>
+
+              <section class="more-page" data-more-page-panel="merge" hidden>
+                <div class="more-page-header">
+                  <button type="button" class="icon-btn more-page-back" data-more-action="back-home" aria-label="Zurueck zur Mehr-Seitenliste">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M15 6L9 12L15 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                  <h3>Duplikate &amp; Merge</h3>
+                </div>
+
+                <section class="merge-hero" aria-label="Merge Uebersicht">
+                  <div class="merge-hero-copy">
+                    <p class="merge-eyebrow">Daten bereinigen</p>
+                    <h4>Vermutete Duplikate schnell pruefen oder Datensaetze gezielt zusammenfuehren.</h4>
+                    <p class="form-subnote">Automatische Vorschlaege priorisieren starke Treffer. Beim manuellen Merge entscheidest du selbst, welche Daten im Ziel erhalten bleiben oder aus der Quelle uebernommen werden.</p>
+                  </div>
                 </section>
 
-                <button id="import-run-btn" type="button" class="primary-btn">Import ausfuehren</button>
+                <div class="results-transfer-grid merge-grid">
+                  <section class="results-transfer-block merge-block merge-block--suggestions" aria-labelledby="merge-suggestions-title">
+                    <div class="merge-block-head">
+                      <div>
+                        <p class="merge-block-kicker">Automatisch</p>
+                        <h3 id="merge-suggestions-title">Vorschlaege</h3>
+                      </div>
+                      <button id="merge-refresh-btn" type="button" class="ghost-btn">Neu pruefen</button>
+                    </div>
+                    <p class="form-subnote">Erkennt wahrscheinliche Duplikate anhand von Name, DSA-ID, Geburtsdatum, Kontakt- und Gruppendaten.</p>
+
+                    <div class="merge-section-block merge-section-block--athletes">
+                      <div class="results-athlete-wrap-head">
+                        <div>
+                          <p class="form-note">Athleten</p>
+                          <p class="merge-section-copy">Namensvarianten, fehlende Zusatzdaten und identische Kennungen werden intelligent abgeglichen.</p>
+                        </div>
+                        <p id="merge-athlete-suggestions-summary" class="form-subnote">0 Vorschlaege</p>
+                      </div>
+                      <div id="merge-athlete-suggestions" class="merge-suggestion-list"></div>
+                    </div>
+
+                    <div class="merge-section-block merge-section-block--groups">
+                      <div class="results-athlete-wrap-head">
+                        <div>
+                          <p class="form-note">Gruppen</p>
+                          <p class="merge-section-copy">Aehnliche Namen und ueberschneidende Mitglieder werden als Merge-Kandidaten vorgeschlagen.</p>
+                        </div>
+                        <p id="merge-group-suggestions-summary" class="form-subnote">0 Vorschlaege</p>
+                      </div>
+                      <div id="merge-group-suggestions" class="merge-suggestion-list"></div>
+                    </div>
+                  </section>
+
+                  <section class="results-transfer-block merge-block merge-block--manual" aria-labelledby="merge-manual-title">
+                    <div class="merge-block-head">
+                      <div>
+                        <p class="merge-block-kicker">Manuell</p>
+                        <h3 id="merge-manual-title">Zusammenfuehren</h3>
+                      </div>
+                    </div>
+                    <p class="form-subnote">Waehle Ziel und Quelle und entscheide, welche Daten uebernommen werden sollen.</p>
+
+                    <div class="merge-manual-shell">
+                      <label class="results-file-input" for="merge-entity-type-select">
+                        <span>Typ</span>
+                        <select id="merge-entity-type-select">
+                          <option value="athletes">Athleten</option>
+                          <option value="groups">Gruppen</option>
+                        </select>
+                      </label>
+
+                      <div class="merge-compare-grid">
+                        <label class="results-file-input merge-compare-card" for="merge-primary-select">
+                          <span>Ziel behalten</span>
+                          <select id="merge-primary-select"></select>
+                        </label>
+
+                        <div class="merge-compare-arrow" aria-hidden="true">
+                          <span>+</span>
+                        </div>
+
+                        <label class="results-file-input merge-compare-card" for="merge-secondary-select">
+                          <span>Quelle uebernehmen</span>
+                          <select id="merge-secondary-select"></select>
+                        </label>
+                      </div>
+
+                      <section id="merge-athlete-options" class="results-athlete-wrap merge-option-card">
+                        <div class="results-athlete-wrap-head">
+                          <div>
+                            <p class="form-note">Athleten-Daten aus Quelle uebernehmen</p>
+                            <p class="merge-section-copy">Aktiviere Felder, die im Ziel ersetzt oder ergaenzt werden sollen.</p>
+                          </div>
+                        </div>
+                        <div id="merge-athlete-field-options" class="merge-option-list"></div>
+                      </section>
+
+                      <section id="merge-group-options" class="results-athlete-wrap merge-option-card" hidden>
+                        <div class="results-athlete-wrap-head">
+                          <div>
+                            <p class="form-note">Gruppen-Daten aus Quelle uebernehmen</p>
+                            <p class="merge-section-copy">Mitglieder und Trainingszeiten lassen sich gesammelt in das Ziel uebertragen.</p>
+                          </div>
+                        </div>
+                        <div id="merge-group-field-options" class="merge-option-list"></div>
+                      </section>
+
+                      <div class="results-inline-actions results-inline-actions--wrap merge-action-bar">
+                        <button id="merge-preview-btn" type="button" class="ghost-btn">Auswahl aktualisieren</button>
+                        <button id="merge-run-btn" type="button" class="primary-btn">Zusammenfuehren</button>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </section>
+
+              <section class="more-page more-page--custom" data-more-page-panel="custom" hidden>
+                <div class="more-page-header">
+                  <button type="button" class="icon-btn more-page-back" data-more-action="back-home" aria-label="Zurueck zur Mehr-Seitenliste">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M15 6L9 12L15 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                  <h3>Eigene Disziplinen verwalten</h3>
+                </div>
+
+                <div class="results-transfer-grid custom-discipline-layout">
+                  <section class="results-transfer-block custom-discipline-block custom-discipline-block--editor" aria-labelledby="custom-discipline-editor-title">
+                    <h3 id="custom-discipline-editor-title">Neue Disziplin</h3>
+                    <p class="form-subnote">Name, Eingabeart, Richtung (mehr/weniger besser) und optional Ausfuehrungen festlegen.</p>
+
+                    <form id="custom-discipline-form" class="form-grid custom-discipline-form" novalidate>
+                      <label>
+                        <span>Name</span>
+                        <input id="custom-discipline-name-input" type="text" maxlength="120" required />
+                      </label>
+
+                      <label>
+                        <span>Eingabe Typ</span>
+                        <select id="custom-discipline-input-type-select" required>
+                          <option value="level">Stufe</option>
+                          <option value="count">Anzahl</option>
+                          <option value="value">Wert</option>
+                          <option value="time_seconds">Zeit s</option>
+                          <option value="time_mm_ss">Zeit mm:ss</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        <span>Bewertung</span>
+                        <select id="custom-discipline-better-select" required>
+                          <option value="higher">Mehr = besser</option>
+                          <option value="lower">Weniger = besser</option>
+                        </select>
+                      </label>
+
+                      <label class="optional-grid">
+                        <span>Ausfuehrungen (optional)</span>
+                        <textarea id="custom-discipline-executions-input" rows="3" placeholder="z.B. Halle&#10;Aussenbahn"></textarea>
+                      </label>
+
+                      <label class="optional-grid">
+                        <span>Erlaeuterung (optional)</span>
+                        <textarea id="custom-discipline-description-input" rows="2" placeholder="Kurze Notiz fuer Trainer und Athleten"></textarea>
+                      </label>
+
+                      <div class="modal-actions optional-grid">
+                        <button type="button" id="custom-discipline-cancel-btn" class="secondary-btn">Zuruecksetzen</button>
+                        <button type="submit" id="custom-discipline-save-btn" class="primary-btn">Speichern</button>
+                      </div>
+                    </form>
+                  </section>
+
+                  <section class="results-transfer-block custom-discipline-block custom-discipline-block--list" aria-labelledby="custom-discipline-list-title">
+                    <h3 id="custom-discipline-list-title">Vorhandene Disziplinen</h3>
+                    <div id="custom-discipline-list" class="custom-discipline-list"></div>
+                  </section>
+                </div>
+              </section>
+
+              <section class="more-page more-page--certificate" data-more-page-panel="certificate" hidden>
+                <div class="more-page-header">
+                  <button type="button" class="icon-btn more-page-back" data-more-action="back-home" aria-label="Zurueck zur Mehr-Seitenliste">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M15 6L9 12L15 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                  <h3>Urkunden Export &amp; Druck</h3>
+                </div>
+
+                <div class="results-transfer-grid certificate-layout">
+                  <section class="results-transfer-block certificate-block" aria-labelledby="certificate-export-title">
+                    <h3 id="certificate-export-title">Word / LibreOffice Serienbrief Export</h3>
+                    <p class="form-subnote">CSV fuer Serienbrief mit Athletendaten, DSA Text und Leistungen.</p>
+
+                    <label class="results-file-input" for="certificate-scope-select">
+                      <span>Athleten Quelle</span>
+                      <select id="certificate-scope-select">
+                        <option value="all">Alle Athleten</option>
+                        <option value="groups">Gruppen</option>
+                        <option value="athletes">Einzelne Athleten</option>
+                      </select>
+                    </label>
+
+                    <label id="certificate-group-wrap" class="results-file-input" for="certificate-group-select" hidden>
+                      <span>Gruppen (Mehrfachauswahl)</span>
+                      <select id="certificate-group-select" multiple size="6"></select>
+                    </label>
+
+                    <section id="certificate-athletes-wrap" class="results-athlete-wrap" hidden>
+                      <div class="results-athlete-wrap-head">
+                        <p class="form-note">Athletenauswahl</p>
+                        <div class="results-inline-actions">
+                          <button id="certificate-athletes-all-btn" type="button" class="ghost-btn">Alle</button>
+                          <button id="certificate-athletes-none-btn" type="button" class="ghost-btn">Keine</button>
+                        </div>
+                      </div>
+                      <div id="certificate-athlete-selection" class="results-athlete-selection"></div>
+                    </section>
+
+                    <label class="results-file-input" for="certificate-discipline-mode-select">
+                      <span>Leistungen</span>
+                      <select id="certificate-discipline-mode-select">
+                        <option value="all">Alle verfuegbaren Disziplinen</option>
+                        <option value="selected">Ausgewaehlte Disziplinen</option>
+                      </select>
+                    </label>
+
+                    <section id="certificate-disciplines-wrap" class="results-athlete-wrap" hidden>
+                      <div class="results-athlete-wrap-head">
+                        <p class="form-note">Disziplinenauswahl (inkl. Ausfuehrung)</p>
+                        <div class="results-inline-actions">
+                          <button id="certificate-disciplines-all-btn" type="button" class="ghost-btn">Alle</button>
+                          <button id="certificate-disciplines-none-btn" type="button" class="ghost-btn">Keine</button>
+                        </div>
+                      </div>
+                      <div id="certificate-discipline-selection" class="results-athlete-selection"></div>
+                    </section>
+
+                    <label class="results-import-option">
+                      <input id="certificate-include-execution-checkbox" type="checkbox" checked />
+                      <span>Ausfuehrung in der Bezeichnung anzeigen (z.B. Sprint 100m)</span>
+                    </label>
+
+                    <label class="results-import-option">
+                      <input id="certificate-include-level-checkbox" type="checkbox" checked />
+                      <span>Stufe bei Leistungstext mit ausgeben (Bronze/Silber/Gold)</span>
+                    </label>
+
+                    <p id="certificate-selection-summary" class="form-subnote">0 Athleten | 0 Disziplinen</p>
+
+                    <div class="results-transfer-actions">
+                      <button id="certificate-export-csv-btn" type="button" class="primary-btn">CSV Export (Serienbrief)</button>
+                    </div>
+                  </section>
+
+                  <section class="results-transfer-block certificate-block" aria-labelledby="certificate-print-title">
+                    <h3 id="certificate-print-title">Direktdruck Urkunden (Nicht Funktional - BETA)</h3>
+                    <p class="form-subnote">Urkundenlayout konfigurieren und ueber Druckfunktion ausgeben.</p>
+
+                    <label class="results-file-input" for="certificate-headline-input">
+                      <span>Ueberschrift</span>
+                      <input id="certificate-headline-input" type="text" maxlength="120" placeholder="Urkunde" />
+                    </label>
+
+                    <label class="results-file-input" for="certificate-layout-select">
+                      <span>Seitenlayout</span>
+                      <select id="certificate-layout-select">
+                        <option value="a4-single">A4 - 1 Urkunde pro Seite</option>
+                        <option value="a4-double">A4 - 2 Urkunden pro Seite</option>
+                        <option value="a5-single">A5 - 1 Urkunde pro Seite</option>
+                        <option value="a5-double">A5 - 2 Urkunden pro Seite</option>
+                      </select>
+                    </label>
+
+                    <label class="results-file-input" for="certificate-design-select">
+                      <span>Design</span>
+                      <select id="certificate-design-select">
+                        <option value="design-1">Design 1</option>
+                        <option value="design-2">Design 2</option>
+                        <option value="design-3">Design 3</option>
+                        <option value="design-4">Design 4</option>
+                        <option value="design-5">Design 5</option>
+                        <option value="design-6">Design 6</option>
+                        <option value="design-7">Design 7</option>
+                        <option value="design-8">Design 8</option>
+                        <option value="design-9">Design 9</option>
+                        <option value="design-10">Design 10</option>
+                      </select>
+                    </label>
+
+                    <label class="results-file-input" for="certificate-background-input">
+                      <span>Hintergrundbild (optional)</span>
+                      <input id="certificate-background-input" type="file" accept="image/*" />
+                    </label>
+                    <p id="certificate-background-meta" class="form-subnote">Kein Hintergrund gewaehlt.</p>
+
+                    <label class="results-file-input" for="certificate-logo-primary-input">
+                      <span>Logo 1 (optional)</span>
+                      <input id="certificate-logo-primary-input" type="file" accept="image/*" />
+                    </label>
+                    <p id="certificate-logo-primary-meta" class="form-subnote">Kein Logo 1 gewaehlt.</p>
+
+                    <label class="results-file-input" for="certificate-logo-secondary-input">
+                      <span>Logo 2 (optional)</span>
+                      <input id="certificate-logo-secondary-input" type="file" accept="image/*" />
+                    </label>
+                    <p id="certificate-logo-secondary-meta" class="form-subnote">Kein Logo 2 gewaehlt.</p>
+
+                    <div class="results-inline-actions results-inline-actions--wrap">
+                      <button id="certificate-preview-print-btn" type="button" class="ghost-btn">Druckansicht oeffnen</button>
+                      <button id="certificate-run-print-btn" type="button" class="primary-btn">Urkunden drucken</button>
+                    </div>
+                  </section>
+                </div>
               </section>
             </div>
-
-            <section class="results-disclaimer" aria-labelledby="results-disclaimer-title">
-              <h3 id="results-disclaimer-title">Hinweis / Disclaimer / Copyright 2026</h3>
-              <p>Author: Benny354912</p>
-              <ul class="results-disclaimer-list">
-                <li>Keine Garantie/Gewaehr auf Funktionalitaet oder Richtigkeit.</li>
-                <li>Privatprojekt. Keine Haftung fuer Datenverlust oder andere Schaeden, die von/durch oder in Verbindung mit dieser App/Website entstehen. Nutzung auf eigene Verantwortung.</li>
-                <li>Dieses Projekt ist quelloffen und kann auf GitHub eingesehen werden. Dort koennen auch Fehler und Verbesserungen gemeldet werden.</li>
-                <li>Die Nutzung ist kostenlos und ohne Werbung. Eine kleine Spende freut mich sehr und unterstuetzt/motiviert mich, weiter an diesem und anderen Projekten zu arbeiten und alles aktuell zu halten.</li>
-              </ul>
-              <div class="results-disclaimer-donations">
-                <p><strong>Bitcoin:</strong> <span>bc1qkfaev4eayjllwhy0ga8knfds2tdx9zkp2kmtht</span></p>
-                <p><strong>Solana:</strong> <span>9X6DsdA7nnKFvd9m3TrGTMaqrq9K2zVXHckNhQhaFKRC</span></p>
-                <p><strong>Ethereum, Base, Polygon:</strong> <span>0x3d1797357dfd3639e268B673998e6afb58A180ab</span></p>
-              </div>
-              <p>Vielen Dank fuer die Nutzung.</p>
-            </section>
           </div>
         </section>
       </main>
@@ -274,10 +764,10 @@
 
         <button class="nav-item" data-target-view="results">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 18V9M12 18V5M18 18v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M5 12h.01M12 12h.01M19 12h.01" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" />
           </svg>
-          <span class="nav-label nav-short">Ausw.</span>
-          <span class="nav-label nav-long">Auswertung</span>
+          <span class="nav-label nav-short">Mehr</span>
+          <span class="nav-label nav-long">Mehr</span>
         </button>
       </nav>
     </div>
@@ -297,12 +787,12 @@
           <div class="form-grid">
             <label>
               <span>Vorname</span>
-              <input name="firstName" type="text" autocomplete="given-name" required />
+              <input name="firstName" type="text" autocomplete="given-name" autocapitalize="words" placeholder="Vorname" required />
             </label>
 
             <label>
               <span>Nachname</span>
-              <input name="lastName" type="text" autocomplete="family-name" required />
+              <input name="lastName" type="text" autocomplete="family-name" autocapitalize="words" placeholder="Nachname" required />
             </label>
 
             <label class="athlete-gender-field">
@@ -315,8 +805,8 @@
             </label>
 
             <label>
-              <span>Geburtsdatum</span>
-              <input name="birthDate" type="date" required />
+              <span>Geburtsangabe (Jahr oder Datum)</span>
+              <input name="birthInput" type="text" inputmode="numeric" autocomplete="bday" placeholder="YYYY, YYYY-MM-DD oder DD.MM.YYYY" title="Erlaubt: YYYY, YYYY-MM-DD oder DD.MM.YYYY" required />
             </label>
 
             <section class="optional-section form-span-2" aria-labelledby="athlete-groups-note">
@@ -335,7 +825,7 @@
 
                 <label>
                   <span>PLZ</span>
-                  <input name="zip" type="text" inputmode="text" aria-describedby="submission-note" />
+                  <input name="zip" type="text" inputmode="numeric" autocomplete="postal-code" aria-describedby="submission-note" />
                 </label>
 
                 <label>
@@ -346,6 +836,23 @@
                 <label>
                   <span>Land</span>
                   <input name="country" type="text" autocomplete="country-name" value="Deutschland" aria-describedby="submission-note" />
+                </label>
+              </div>
+            </section>
+
+            <section class="optional-section form-span-2" aria-labelledby="emergency-note">
+              <p id="emergency-note" class="form-note">Notfallkontakte (optional)</p>
+              <p class="athlete-contact-note">Trenne mehrere Eintraege mit Semikolon, Komma oder Zeilenumbruch.</p>
+
+              <div class="optional-grid">
+                <label class="form-span-2">
+                  <span>E-Mail Adressen (mehrere moeglich)</span>
+                  <textarea name="emergencyEmails" rows="3" spellcheck="false" placeholder="z.B. kontakt1@mail.de; kontakt2@mail.de"></textarea>
+                </label>
+
+                <label class="form-span-2">
+                  <span>Telefonnummern (mehrere moeglich)</span>
+                  <textarea name="emergencyPhones" rows="3" placeholder="z.B. +49 170 1234567; 01234 567890"></textarea>
                 </label>
               </div>
             </section>
@@ -438,6 +945,10 @@
         </div>
 
         <form id="performance-form" class="performance-form" novalidate>
+          <div id="performance-execution-selector" class="training-execution-selector" hidden></div>
+
+          <div id="performance-requirements-row" class="training-requirement-row" hidden></div>
+
           <label id="performance-value-label">
             <span>Leistung</span>
             <input id="performance-value-input" name="performanceValue" type="text" required />
@@ -481,6 +992,46 @@
       </div>
     </div>
 
+    <div id="training-quick-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="training-quick-modal-title" hidden>
+      <div class="modal-panel training-quick-modal-panel">
+        <div class="modal-header">
+          <div>
+            <h2 id="training-quick-modal-title">Leistung eingeben</h2>
+            <p id="training-quick-modal-meta" class="performance-modal-meta"></p>
+          </div>
+          <button type="button" id="training-quick-modal-close-btn" class="icon-btn" aria-label="Schnelleingabe schliessen">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div id="training-quick-modal-requirements" class="training-quick-modal-requirements"></div>
+        <div id="training-quick-modal-executions" class="training-quick-modal-executions"></div>
+
+        <label class="training-quick-modal-input-label" for="training-quick-modal-input">
+          <span>Leistung</span>
+          <input id="training-quick-modal-input" type="text" />
+        </label>
+
+        <div id="training-quick-modal-levels" class="training-quick-modal-levels" hidden>
+          <button type="button" class="training-level-btn" data-training-action="quick-modal-level" data-level="Bronze">Bronze</button>
+          <button type="button" class="training-level-btn" data-training-action="quick-modal-level" data-level="Silber">Silber</button>
+          <button type="button" class="training-level-btn" data-training-action="quick-modal-level" data-level="Gold">Gold</button>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="training-quick-modal-cancel-btn" class="secondary-btn">Abbrechen</button>
+          <button type="button" id="training-quick-modal-save-btn" class="primary-btn">Speichern</button>
+        </div>
+
+        <div class="performance-history-wrap training-quick-modal-history-wrap">
+          <h3 class="performance-history-title">Gespeicherte Eintraege</h3>
+          <ul id="training-quick-modal-history" class="performance-history"></ul>
+        </div>
+      </div>
+    </div>
+
     <div id="disclaimer-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="disclaimer-modal-title" hidden>
       <div class="modal-panel modal-panel--disclaimer">
         <div class="modal-header">
@@ -493,20 +1044,36 @@
             <li>Keine Garantie/Gewaehr auf Funktionalitaet oder Richtigkeit.</li>
             <li>Privatprojekt. Keine Haftung fuer Datenverlust oder andere Schaeden, die von/durch oder in Verbindung mit dieser App/Website entstehen. Nutzung auf eigene Verantwortung.</li>
             <li>Dieses Projekt ist quelloffen und kann auf GitHub eingesehen werden. Dort koennen auch Fehler und Verbesserungen gemeldet werden.</li>
-            <li>Die Nutzung ist kostenlos und ohne Werbung. Eine kleine Spende freut mich sehr und unterstuetzt/motiviert mich, weiter an diesem und anderen Projekten zu arbeiten und alles aktuell zu halten.</li>
+            <li>Die Nutzung ist kostenlos und ohne Werbung.</li>
           </ul>
-
-          <div class="disclaimer-donations">
-            <p><strong>Bitcoin:</strong> <span>bc1qkfaev4eayjllwhy0ga8knfds2tdx9zkp2kmtht</span></p>
-            <p><strong>Solana:</strong> <span>9X6DsdA7nnKFvd9m3TrGTMaqrq9K2zVXHckNhQhaFKRC</span></p>
-            <p><strong>Ethereum, Base, Polygon:</strong> <span>0x3d1797357dfd3639e268B673998e6afb58A180ab</span></p>
-          </div>
 
           <p>Vielen Dank fuer die Nutzung.</p>
         </div>
 
         <div class="modal-actions">
           <button type="button" id="ack-disclaimer-btn" class="primary-btn">Gelesen und verstanden</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="emergency-contacts-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="emergency-contacts-title" hidden>
+      <div class="modal-panel">
+        <div class="modal-header">
+          <div>
+            <h2 id="emergency-contacts-title">Kontakte</h2>
+            <p id="emergency-contacts-meta" class="performance-modal-meta"></p>
+          </div>
+          <button type="button" id="close-emergency-contacts-btn" class="icon-btn" aria-label="Kontakte schliessen">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div id="emergency-contacts-list" class="emergency-contacts-list"></div>
+
+        <div class="modal-actions">
+          <button type="button" id="close-emergency-contacts-footer-btn" class="secondary-btn">Schliessen</button>
         </div>
       </div>
     </div>

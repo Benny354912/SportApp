@@ -1,6 +1,7 @@
 const STORAGE_KEY = "sportabzeichen.athletes.v1";
 const GROUP_STORAGE_KEY = "sportabzeichen.groups.v1";
 const TRAINING_STATE_STORAGE_KEY = "sportabzeichen.trainingState.v1";
+const CUSTOM_DISCIPLINES_STORAGE_KEY = "sportabzeichen.customDisciplines.v1";
 const DISCLAIMER_ACCEPTED_STORAGE_KEY = "sportabzeichen.disclaimerAccepted.v1";
 const REQUIREMENT_FILE_CANDIDATES = [
   "./sportabzeichen_2026_requirements.webapp.json",
@@ -36,6 +37,9 @@ const WEEKDAY_OPTIONS = [
 ];
 const APP_PAGE_INSTANCE_ID = createId();
 const TRAINING_ABORT_CONFIRM_WINDOW_MS = 4200;
+const SWIPE_TOGGLE_TRIGGER_PX = 82;
+const SWIPE_MAX_DRAG_PX = 136;
+const TRAINING_EXECUTION_INDIVIDUAL_KEY = "__training_execution_individual__";
 
 const state = {
   athletes: [],
@@ -58,6 +62,8 @@ const state = {
   importDetectedType: "",
   importDetectedFileName: "",
   importDetectedMessage: "",
+  importPreviewItems: [],
+  importHasSimpleFile: false,
   formMode: "create",
   editAthleteId: "",
   groupFormMode: "create",
@@ -65,10 +71,36 @@ const state = {
   editPerformanceId: "",
   trainingViewMode: "requirements",
   trainingSelectedDisciplineId: "",
+  trainingSelectedExecutionByDiscipline: {},
   trainingCompactPane: "list",
   trainingMarkedAthleteIds: [],
   trainingInputDrafts: {},
-  trainingExamSessions: {}
+  trainingExamSessions: {},
+  trainingDailyInactiveAthleteIds: {},
+  customDisciplines: [],
+  morePage: "home",
+  moreInsightsScope: "all",
+  moreInsightsActivityRange: "all",
+  certificateScope: "all",
+  certificateGroupIds: [],
+  certificateAthleteIds: [],
+  certificateDisciplineMode: "all",
+  certificateDisciplineKeys: [],
+  certificateIncludeExecutionDetails: true,
+  certificateIncludeLevelDetails: true,
+  certificateHeadline: "Urkunde",
+  certificateLayoutMode: "a4-single",
+  certificateDesign: "design-1",
+  certificateBackgroundDataUrl: "",
+  certificateBackgroundName: "",
+  certificateLogoPrimaryDataUrl: "",
+  certificateLogoPrimaryName: "",
+  certificateLogoSecondaryDataUrl: "",
+  certificateLogoSecondaryName: "",
+  mailerScope: "all",
+  mailerGroupIds: [],
+  mailerAthleteIds: [],
+  mergeEntityType: "athletes"
 };
 
 const athletesView = document.getElementById("view-athletes");
@@ -113,6 +145,8 @@ const performanceModal = document.getElementById("performance-modal");
 const performanceModalTitle = document.getElementById("performance-modal-title");
 const performanceModalMeta = document.getElementById("performance-modal-meta");
 const closePerformanceModalButton = document.getElementById("close-performance-modal-btn");
+const performanceExecutionSelector = document.getElementById("performance-execution-selector");
+const performanceRequirementsRow = document.getElementById("performance-requirements-row");
 const performanceSpecialFields = document.getElementById("performance-special-fields");
 const performanceSpecialSelectLabel = document.getElementById("performance-special-select-label");
 const performanceSpecialSelectText = document.getElementById("performance-special-select-text");
@@ -125,6 +159,17 @@ const performanceSpecialLevelButtons = performanceSpecialLevelPicker
   ? Array.from(performanceSpecialLevelPicker.querySelectorAll(".medal-level-btn[data-level]"))
   : [];
 const performanceSpecialHint = document.getElementById("performance-special-hint");
+const trainingQuickModal = document.getElementById("training-quick-modal");
+const trainingQuickModalTitle = document.getElementById("training-quick-modal-title");
+const trainingQuickModalMeta = document.getElementById("training-quick-modal-meta");
+const trainingQuickModalRequirements = document.getElementById("training-quick-modal-requirements");
+const trainingQuickModalExecutions = document.getElementById("training-quick-modal-executions");
+const trainingQuickModalInput = document.getElementById("training-quick-modal-input");
+const trainingQuickModalLevels = document.getElementById("training-quick-modal-levels");
+const trainingQuickModalHistory = document.getElementById("training-quick-modal-history");
+const trainingQuickModalCloseButton = document.getElementById("training-quick-modal-close-btn");
+const trainingQuickModalCancelButton = document.getElementById("training-quick-modal-cancel-btn");
+const trainingQuickModalSaveButton = document.getElementById("training-quick-modal-save-btn");
 const disclaimerModal = document.getElementById("disclaimer-modal");
 const ackDisclaimerButton = document.getElementById("ack-disclaimer-btn");
 
@@ -143,6 +188,8 @@ const saveAthleteButton = document.getElementById("save-athlete-btn");
 const deleteAthleteButton = document.getElementById("delete-athlete-btn");
 const addAthleteButton = document.getElementById("add-athlete-btn");
 const editAthleteButton = document.getElementById("edit-athlete-btn");
+const athleteStatsButton = document.getElementById("athlete-stats-btn");
+const athleteEmergencyButton = document.getElementById("athlete-emergency-btn");
 const athleteBackButton = document.getElementById("athlete-back-btn");
 const closeModalButton = document.getElementById("close-modal-btn");
 const cancelModalButton = document.getElementById("cancel-modal-btn");
@@ -178,6 +225,8 @@ const exportSelectionGroupFilter = document.getElementById("export-selection-gro
 const importFileInput = document.getElementById("import-file-input");
 const importRunButton = document.getElementById("import-run-btn");
 const importDetectedFormat = document.getElementById("import-detected-format");
+const importPreviewWrap = document.getElementById("import-preview-wrap");
+const importPreviewList = document.getElementById("import-preview-list");
 const importSimpleGroupControls = document.getElementById("import-simple-group-controls");
 const importCreateGroupCheckbox = document.getElementById("import-create-group-checkbox");
 const importGroupSelectWrap = document.getElementById("import-group-select-wrap");
@@ -185,16 +234,99 @@ const importGroupSelect = document.getElementById("import-group-select");
 const resultsTotalAthletes = document.getElementById("results-total-athletes");
 const resultsTotalGroups = document.getElementById("results-total-groups");
 const resultsTotalPerformances = document.getElementById("results-total-performances");
+const morePageNav = document.getElementById("more-page-nav");
+const morePagePanels = document.getElementById("more-page-panels");
+const moreInsightsScopeSelect = document.getElementById("more-insights-scope-select");
+const moreInsightsGroupCount = document.getElementById("more-insights-group-count");
+const moreMissingChart = document.getElementById("more-missing-chart");
+const moreAgeChart = document.getElementById("more-age-chart");
+const moreActivityChart = document.getElementById("more-activity-chart");
+const moreActivityRangeChips = document.getElementById("more-activity-range-chips");
+const moreStrengthChart = document.getElementById("more-strength-chart");
+const customDisciplineForm = document.getElementById("custom-discipline-form");
+const customDisciplineNameInput = document.getElementById("custom-discipline-name-input");
+const customDisciplineInputTypeSelect = document.getElementById("custom-discipline-input-type-select");
+const customDisciplineBetterSelect = document.getElementById("custom-discipline-better-select");
+const customDisciplineExecutionsInput = document.getElementById("custom-discipline-executions-input");
+const customDisciplineDescriptionInput = document.getElementById("custom-discipline-description-input");
+const customDisciplineCancelButton = document.getElementById("custom-discipline-cancel-btn");
+const customDisciplineSaveButton = document.getElementById("custom-discipline-save-btn");
+const customDisciplineList = document.getElementById("custom-discipline-list");
+const certificateScopeSelect = document.getElementById("certificate-scope-select");
+const certificateGroupWrap = document.getElementById("certificate-group-wrap");
+const certificateGroupSelect = document.getElementById("certificate-group-select");
+const certificateAthletesWrap = document.getElementById("certificate-athletes-wrap");
+const certificateAthleteSelection = document.getElementById("certificate-athlete-selection");
+const certificateAthletesAllButton = document.getElementById("certificate-athletes-all-btn");
+const certificateAthletesNoneButton = document.getElementById("certificate-athletes-none-btn");
+const certificateDisciplineModeSelect = document.getElementById("certificate-discipline-mode-select");
+const certificateDisciplinesWrap = document.getElementById("certificate-disciplines-wrap");
+const certificateDisciplineSelection = document.getElementById("certificate-discipline-selection");
+const certificateDisciplinesAllButton = document.getElementById("certificate-disciplines-all-btn");
+const certificateDisciplinesNoneButton = document.getElementById("certificate-disciplines-none-btn");
+const certificateIncludeExecutionCheckbox = document.getElementById("certificate-include-execution-checkbox");
+const certificateIncludeLevelCheckbox = document.getElementById("certificate-include-level-checkbox");
+const certificateSelectionSummary = document.getElementById("certificate-selection-summary");
+const certificateExportCsvButton = document.getElementById("certificate-export-csv-btn");
+const certificateHeadlineInput = document.getElementById("certificate-headline-input");
+const certificateLayoutSelect = document.getElementById("certificate-layout-select");
+const certificateDesignSelect = document.getElementById("certificate-design-select");
+const certificateBackgroundInput = document.getElementById("certificate-background-input");
+const certificateBackgroundMeta = document.getElementById("certificate-background-meta");
+const certificateLogoPrimaryInput = document.getElementById("certificate-logo-primary-input");
+const certificateLogoPrimaryMeta = document.getElementById("certificate-logo-primary-meta");
+const certificateLogoSecondaryInput = document.getElementById("certificate-logo-secondary-input");
+const certificateLogoSecondaryMeta = document.getElementById("certificate-logo-secondary-meta");
+const certificatePreviewPrintButton = document.getElementById("certificate-preview-print-btn");
+const certificateRunPrintButton = document.getElementById("certificate-run-print-btn");
+const mailerScopeSelect = document.getElementById("mailer-scope-select");
+const mailerGroupWrap = document.getElementById("mailer-group-wrap");
+const mailerGroupSelect = document.getElementById("mailer-group-select");
+const mailerAthletesWrap = document.getElementById("mailer-athletes-wrap");
+const mailerAthleteSelection = document.getElementById("mailer-athlete-selection");
+const mailerAthletesAllButton = document.getElementById("mailer-athletes-all-btn");
+const mailerAthletesNoneButton = document.getElementById("mailer-athletes-none-btn");
+const mailerOutput = document.getElementById("mailer-output");
+const mailerSummary = document.getElementById("mailer-summary");
+const mailerCopySemicolonButton = document.getElementById("mailer-copy-semicolon-btn");
+const mailerCopyCommaButton = document.getElementById("mailer-copy-comma-btn");
+const mailerCopyLinesButton = document.getElementById("mailer-copy-lines-btn");
+const mailerOpenToButton = document.getElementById("mailer-open-to-btn");
+const mailerOpenCcButton = document.getElementById("mailer-open-cc-btn");
+const mailerOpenBccButton = document.getElementById("mailer-open-bcc-btn");
+const mergeRefreshButton = document.getElementById("merge-refresh-btn");
+const mergeAthleteSuggestionsSummary = document.getElementById("merge-athlete-suggestions-summary");
+const mergeAthleteSuggestions = document.getElementById("merge-athlete-suggestions");
+const mergeGroupSuggestionsSummary = document.getElementById("merge-group-suggestions-summary");
+const mergeGroupSuggestions = document.getElementById("merge-group-suggestions");
+const mergeEntityTypeSelect = document.getElementById("merge-entity-type-select");
+const mergePrimarySelect = document.getElementById("merge-primary-select");
+const mergeSecondarySelect = document.getElementById("merge-secondary-select");
+const mergeAthleteOptions = document.getElementById("merge-athlete-options");
+const mergeGroupOptions = document.getElementById("merge-group-options");
+const mergeAthleteFieldOptions = document.getElementById("merge-athlete-field-options");
+const mergeGroupFieldOptions = document.getElementById("merge-group-field-options");
+const mergePreviewButton = document.getElementById("merge-preview-btn");
+const mergeRunButton = document.getElementById("merge-run-btn");
+const resultsDisclaimerSection = document.querySelector(".results-disclaimer");
+const emergencyContactsModal = document.getElementById("emergency-contacts-modal");
+const emergencyContactsMeta = document.getElementById("emergency-contacts-meta");
+const emergencyContactsList = document.getElementById("emergency-contacts-list");
+const closeEmergencyContactsButton = document.getElementById("close-emergency-contacts-btn");
+const closeEmergencyContactsFooterButton = document.getElementById("close-emergency-contacts-footer-btn");
 
 let deferredInstallPrompt = null;
 let toastTimer = null;
 let xlsxLibraryPromise = null;
 let trainingExamTickerHandle = null;
 let trainingAbortConfirmTimer = null;
+let trainingQuickModalAthleteId = "";
+let trainingQuickModalEditingEntryId = "";
 let trainingAbortConfirmState = {
   actionKey: "",
   expiresAt: 0
 };
+let customDisciplineEditingId = "";
 
 const CSV_IMPORT_ALIASES = {
   id: ["id", "dsaid"],
@@ -209,6 +341,8 @@ const CSV_IMPORT_ALIASES = {
   street: ["strasseundnr", "strassehsnr", "strassehausnr", "strassehausnummer", "strasse", "street"],
   title: ["titel", "anrede", "title"],
   email: ["email", "mail", "emailadresse", "e-mail"],
+  emergencyEmails: ["notfallmail", "notfallmails", "kontaktmail", "kontaktmails", "emails", "email", "mail", "emailadresse", "e-mail"],
+  emergencyPhones: ["notfalltelefon", "notfallnummer", "notrufnummer", "telefon", "telefonnummer", "phone", "mobil", "handy"],
   disabilityClass: ["behinderungsklasse", "behinderung", "handicapclass"],
   groupName: ["gruppenname", "gruppe", "group", "groupname"],
   ausdauerCode: ["zifferuebungausdauer", "zifferausdauer"],
@@ -226,8 +360,10 @@ function updateBodyScrollLock() {
   const athleteModalOpen = athleteModal && !athleteModal.hidden;
   const groupModalOpen = groupModal && !groupModal.hidden;
   const performanceModalOpen = performanceModal && !performanceModal.hidden;
+  const trainingQuickModalOpen = trainingQuickModal && !trainingQuickModal.hidden;
   const disclaimerModalOpen = disclaimerModal && !disclaimerModal.hidden;
-  document.body.style.overflow = athleteModalOpen || groupModalOpen || performanceModalOpen || disclaimerModalOpen ? "hidden" : "";
+  const emergencyContactsModalOpen = emergencyContactsModal && !emergencyContactsModal.hidden;
+  document.body.style.overflow = athleteModalOpen || groupModalOpen || performanceModalOpen || trainingQuickModalOpen || disclaimerModalOpen || emergencyContactsModalOpen ? "hidden" : "";
 }
 
 function hasAcceptedDisclaimer() {
@@ -308,6 +444,82 @@ function normalizeText(value) {
   return String(value || "").trim().replace(/\s+/g, " ");
 }
 
+function splitContactValueList(rawValue) {
+  const textValue = String(rawValue || "").replace(/\r/g, "\n");
+  if (!textValue.trim()) {
+    return [];
+  }
+
+  return textValue
+    .split(/[\n;,|]+/)
+    .map((entry) => normalizeText(entry))
+    .filter(Boolean);
+}
+
+function normalizeEmergencyEmailList(rawValue) {
+  const list = Array.isArray(rawValue) ? rawValue : splitContactValueList(rawValue);
+  const unique = new Map();
+
+  for (const rawEntry of list) {
+    const email = normalizeText(rawEntry).toLowerCase();
+    if (!email || !email.includes("@")) {
+      continue;
+    }
+    unique.set(email, email);
+  }
+
+  return Array.from(unique.values());
+}
+
+function normalizeEmergencyPhoneList(rawValue) {
+  const list = Array.isArray(rawValue) ? rawValue : splitContactValueList(rawValue);
+  const unique = new Map();
+
+  for (const rawEntry of list) {
+    const phone = normalizeText(rawEntry);
+    if (!phone) {
+      continue;
+    }
+
+    const key = phone.replace(/[^+\d]/g, "");
+    if (!key) {
+      continue;
+    }
+
+    unique.set(key, phone);
+  }
+
+  return Array.from(unique.values());
+}
+
+function getAthleteEmergencyContacts(athlete) {
+  if (!athlete) {
+    return { emails: [], phones: [] };
+  }
+
+  return {
+    emails: normalizeEmergencyEmailList(athlete.emergencyEmails),
+    phones: normalizeEmergencyPhoneList(athlete.emergencyPhones)
+  };
+}
+
+async function copyTextToClipboard(text, { successMessage = "Kopiert.", emptyMessage = "Nichts zu kopieren." } = {}) {
+  const value = String(text || "").trim();
+  if (!value) {
+    showToast(emptyMessage);
+    return false;
+  }
+
+  try {
+    await navigator.clipboard.writeText(value);
+    showToast(successMessage);
+    return true;
+  } catch (_error) {
+    window.prompt("Bitte Inhalt manuell kopieren:", value);
+    return false;
+  }
+}
+
 function isValidYearValue(rawValue) {
   const value = normalizeText(rawValue);
   if (!value) {
@@ -335,6 +547,106 @@ function normalizeYearValue(rawValue) {
   return String(Number(value));
 }
 
+function extractBirthYear(rawValue) {
+  const value = normalizeText(rawValue);
+  if (!value) {
+    return "";
+  }
+
+  const dateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateMatch) {
+    return normalizeYearValue(dateMatch[1]);
+  }
+
+  return normalizeYearValue(value);
+}
+
+function isFullBirthDateValue(rawValue) {
+  const value = normalizeText(rawValue);
+  if (!value) {
+    return false;
+  }
+
+  const dateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!dateMatch) {
+    return false;
+  }
+
+  const year = Number(dateMatch[1]);
+  const month = Number(dateMatch[2]);
+  const day = Number(dateMatch[3]);
+  const parsed = new Date(year, month - 1, day);
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.getFullYear() === year &&
+    parsed.getMonth() === month - 1 &&
+    parsed.getDate() === day
+  );
+}
+
+function normalizeBirthInput(rawValue) {
+  const value = normalizeText(rawValue);
+  if (!value) {
+    return "";
+  }
+
+  const canonical = value.replace(/[\.\/]/g, "-");
+
+  if (isFullBirthDateValue(canonical)) {
+    return canonical;
+  }
+
+  const dayMonthYearMatch = canonical.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dayMonthYearMatch) {
+    const day = Number(dayMonthYearMatch[1]);
+    const month = Number(dayMonthYearMatch[2]);
+    const year = Number(dayMonthYearMatch[3]);
+    const iso = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    if (isFullBirthDateValue(iso)) {
+      return iso;
+    }
+  }
+
+  return normalizeYearValue(canonical);
+}
+
+function normalizeAthleteFormInputsInPlace() {
+  if (!athleteForm) {
+    return;
+  }
+
+  const textFields = ["firstName", "lastName", "dsaId", "zip", "city", "country"];
+  for (const fieldName of textFields) {
+    const field = athleteForm.elements[fieldName];
+    if (!field) {
+      continue;
+    }
+
+    field.value = normalizeText(field.value);
+  }
+
+  const birthField = athleteForm.elements.birthInput;
+  if (birthField) {
+    const rawBirth = normalizeText(birthField.value);
+    const normalizedBirth = normalizeBirthInput(rawBirth);
+    if (normalizedBirth) {
+      birthField.value = normalizedBirth;
+    } else {
+      birthField.value = rawBirth;
+    }
+  }
+
+  const emergencyEmailField = athleteForm.elements.emergencyEmails;
+  if (emergencyEmailField) {
+    emergencyEmailField.value = normalizeEmergencyEmailList(emergencyEmailField.value).join("; ");
+  }
+
+  const emergencyPhoneField = athleteForm.elements.emergencyPhones;
+  if (emergencyPhoneField) {
+    emergencyPhoneField.value = normalizeEmergencyPhoneList(emergencyPhoneField.value).join("; ");
+  }
+}
+
 function toOptionalNumber(rawValue) {
   if (rawValue === null || rawValue === undefined) {
     return NaN;
@@ -347,6 +659,392 @@ function toOptionalNumber(rawValue) {
 
   const numeric = Number(textValue);
   return Number.isFinite(numeric) ? numeric : NaN;
+}
+
+function getLocalDateKey(date = new Date()) {
+  const parsed = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  const year = String(parsed.getFullYear());
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getTodayTrainingDateKey() {
+  return getLocalDateKey(new Date());
+}
+
+function normalizeTrainingDailyInactiveAthleteIds(rawMap) {
+  const normalized = {};
+  if (!rawMap || typeof rawMap !== "object") {
+    return normalized;
+  }
+
+  for (const [rawDateKey, rawAthleteIds] of Object.entries(rawMap)) {
+    const dateKey = normalizeText(rawDateKey);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+      continue;
+    }
+
+    const normalizedAthleteIds = Array.from(
+      new Set((Array.isArray(rawAthleteIds) ? rawAthleteIds : []).map((athleteId) => normalizeText(athleteId)).filter(Boolean))
+    );
+
+    if (normalizedAthleteIds.length > 0) {
+      normalized[dateKey] = normalizedAthleteIds;
+    }
+  }
+
+  return normalized;
+}
+
+function getDailyInactiveAthleteIdSet(dateKey = getTodayTrainingDateKey()) {
+  const normalizedDateKey = normalizeText(dateKey);
+  if (!normalizedDateKey) {
+    return new Set();
+  }
+
+  return new Set(state.trainingDailyInactiveAthleteIds?.[normalizedDateKey] || []);
+}
+
+function isAthleteActiveForToday(athleteId, dateKey = getTodayTrainingDateKey()) {
+  const normalizedAthleteId = normalizeText(athleteId);
+  if (!normalizedAthleteId) {
+    return true;
+  }
+
+  return !getDailyInactiveAthleteIdSet(dateKey).has(normalizedAthleteId);
+}
+
+function compareAthletesByDailyActiveAndName(leftAthlete, rightAthlete) {
+  const leftActive = isAthleteActiveForToday(leftAthlete?.id);
+  const rightActive = isAthleteActiveForToday(rightAthlete?.id);
+  if (leftActive !== rightActive) {
+    return leftActive ? -1 : 1;
+  }
+
+  const byFirstName = normalizeText(leftAthlete?.firstName).localeCompare(normalizeText(rightAthlete?.firstName), "de");
+  if (byFirstName !== 0) {
+    return byFirstName;
+  }
+
+  return normalizeText(leftAthlete?.lastName).localeCompare(normalizeText(rightAthlete?.lastName), "de");
+}
+
+function clearTrainingStateForAthleteIds(athleteIds = []) {
+  const normalizedAthleteIds = Array.from(new Set((Array.isArray(athleteIds) ? athleteIds : []).map((athleteId) => normalizeText(athleteId)).filter(Boolean)));
+  if (normalizedAthleteIds.length === 0) {
+    return false;
+  }
+
+  const normalizedAthleteIdSet = new Set(normalizedAthleteIds);
+  let changed = false;
+
+  const markedBefore = Array.isArray(state.trainingMarkedAthleteIds) ? state.trainingMarkedAthleteIds.length : 0;
+  state.trainingMarkedAthleteIds = (Array.isArray(state.trainingMarkedAthleteIds) ? state.trainingMarkedAthleteIds : []).filter(
+    (athleteId) => !normalizedAthleteIdSet.has(normalizeText(athleteId))
+  );
+  if (state.trainingMarkedAthleteIds.length !== markedBefore) {
+    changed = true;
+  }
+
+  if (!state.trainingExamSessions || typeof state.trainingExamSessions !== "object") {
+    return changed;
+  }
+
+  for (const [disciplineId, sessionRaw] of Object.entries(state.trainingExamSessions)) {
+    const session = normalizeTrainingExamSession(sessionRaw);
+    state.trainingExamSessions[disciplineId] = session;
+
+    for (const athleteId of normalizedAthleteIdSet) {
+      if (!session.athletes[athleteId]) {
+        continue;
+      }
+
+      delete session.athletes[athleteId];
+      changed = true;
+    }
+
+    if (!session.isGlobalRunning && Object.keys(session.athletes).length === 0) {
+      delete state.trainingExamSessions[disciplineId];
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+function setAthletesActiveForToday(athleteIds = [], shouldBeActive = true, { showToast = false } = {}) {
+  const todayKey = getTodayTrainingDateKey();
+  if (!todayKey) {
+    return 0;
+  }
+
+  const validAthleteIdSet = new Set(state.athletes.map((athlete) => athlete.id));
+  const normalizedAthleteIds = Array.from(
+    new Set((Array.isArray(athleteIds) ? athleteIds : []).map((athleteId) => normalizeText(athleteId)).filter((athleteId) => validAthleteIdSet.has(athleteId)))
+  );
+  if (normalizedAthleteIds.length === 0) {
+    return 0;
+  }
+
+  const inactiveSet = getDailyInactiveAthleteIdSet(todayKey);
+  const changedAthleteIds = [];
+
+  for (const athleteId of normalizedAthleteIds) {
+    if (shouldBeActive) {
+      if (inactiveSet.delete(athleteId)) {
+        changedAthleteIds.push(athleteId);
+      }
+      continue;
+    }
+
+    if (!inactiveSet.has(athleteId)) {
+      inactiveSet.add(athleteId);
+      changedAthleteIds.push(athleteId);
+    }
+  }
+
+  if (changedAthleteIds.length === 0) {
+    return 0;
+  }
+
+  if (inactiveSet.size > 0) {
+    state.trainingDailyInactiveAthleteIds[todayKey] = Array.from(inactiveSet);
+  } else {
+    delete state.trainingDailyInactiveAthleteIds[todayKey];
+  }
+
+  if (!shouldBeActive) {
+    clearTrainingStateForAthleteIds(changedAthleteIds);
+  }
+
+  normalizeTrainingMarkedAthleteIds({ visibleOnly: false });
+  saveTrainingState();
+  refreshAthleteViews();
+
+  if (showToast) {
+    const label = changedAthleteIds.length === 1 ? "Athlet" : "Athleten";
+    showToast(`${changedAthleteIds.length} ${label} ${shouldBeActive ? "aktiviert" : "deaktiviert"}.`);
+  }
+
+  return changedAthleteIds.length;
+}
+
+function toggleAthleteActiveForToday(athleteId, { showToast = true } = {}) {
+  const normalizedAthleteId = normalizeText(athleteId);
+  if (!normalizedAthleteId) {
+    return false;
+  }
+
+  const shouldBeActive = !isAthleteActiveForToday(normalizedAthleteId);
+  return setAthletesActiveForToday([normalizedAthleteId], shouldBeActive, { showToast }) > 0;
+}
+
+function toggleVisibleAthletesActiveForToday() {
+  const visibleAthletes = getVisibleAthletes();
+  if (visibleAthletes.length === 0) {
+    showToast("Keine Athleten in der aktuellen Auswahl.");
+    return;
+  }
+
+  const allCurrentlyActive = visibleAthletes.every((athlete) => isAthleteActiveForToday(athlete.id));
+  const changedCount = setAthletesActiveForToday(
+    visibleAthletes.map((athlete) => athlete.id),
+    !allCurrentlyActive,
+    { showToast: false }
+  );
+
+  if (changedCount <= 0) {
+    showToast(`Alle ${visibleAthletes.length} Athleten sind bereits ${allCurrentlyActive ? "aktiv" : "deaktiviert"}.`);
+    return;
+  }
+
+  const selectedGroup = getSelectedGroup();
+  const scopeLabel = selectedGroup ? `in ${selectedGroup.name}` : "in der aktuellen Ansicht";
+  showToast(`${changedCount} Athlet${changedCount === 1 ? "" : "en"} ${!allCurrentlyActive ? "aktiviert" : "deaktiviert"} (${scopeLabel}).`);
+}
+
+function pruneTrainingDailyInactiveAthleteIds() {
+  const normalizedMap = normalizeTrainingDailyInactiveAthleteIds(state.trainingDailyInactiveAthleteIds);
+  const validAthleteIds = new Set(state.athletes.map((athlete) => athlete.id));
+  let changed = false;
+
+  for (const [dateKey, athleteIds] of Object.entries(normalizedMap)) {
+    const filteredAthleteIds = athleteIds.filter((athleteId) => validAthleteIds.has(athleteId));
+    if (filteredAthleteIds.length === athleteIds.length) {
+      continue;
+    }
+
+    changed = true;
+    if (filteredAthleteIds.length > 0) {
+      normalizedMap[dateKey] = filteredAthleteIds;
+    } else {
+      delete normalizedMap[dateKey];
+    }
+  }
+
+  const beforeSerialized = JSON.stringify(normalizeTrainingDailyInactiveAthleteIds(state.trainingDailyInactiveAthleteIds));
+  const afterSerialized = JSON.stringify(normalizedMap);
+  if (beforeSerialized !== afterSerialized) {
+    changed = true;
+  }
+
+  state.trainingDailyInactiveAthleteIds = normalizedMap;
+  return changed;
+}
+
+function consumeSwipeSuppressedClick(target) {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  const suppressedElement = target.closest('[data-swipe-ignore-click="1"]');
+  if (!suppressedElement) {
+    return false;
+  }
+
+  suppressedElement.dataset.swipeIgnoreClick = "";
+  return true;
+}
+
+function attachRightSwipeToggle(element, onToggle) {
+  if (!(element instanceof HTMLElement) || typeof onToggle !== "function") {
+    return;
+  }
+
+  if (element.dataset.swipeToggleBound === "1") {
+    return;
+  }
+  element.dataset.swipeToggleBound = "1";
+
+  let pointerId = null;
+  let startX = 0;
+  let startY = 0;
+  let dragX = 0;
+  let isTracking = false;
+  let isHorizontalDrag = false;
+
+  const resetDrag = ({ animate = true } = {}) => {
+    if (animate) {
+      element.style.transition = "transform 160ms ease";
+    } else {
+      element.style.transition = "";
+    }
+    element.style.transform = "";
+    element.classList.remove("is-swipe-dragging");
+    dragX = 0;
+  };
+
+  const onPointerDown = (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    const target = event.target;
+    if (target instanceof Element) {
+      const interactiveParent = target.closest("input, select, textarea, button, a, [contenteditable='true']");
+      if (interactiveParent && interactiveParent !== element) {
+        return;
+      }
+    }
+
+    pointerId = event.pointerId;
+    startX = event.clientX;
+    startY = event.clientY;
+    dragX = 0;
+    isTracking = true;
+    isHorizontalDrag = false;
+    element.style.transition = "";
+    if (typeof element.setPointerCapture === "function") {
+      element.setPointerCapture(pointerId);
+    }
+  };
+
+  const onPointerMove = (event) => {
+    if (!isTracking || event.pointerId !== pointerId) {
+      return;
+    }
+
+    const offsetX = event.clientX - startX;
+    const offsetY = event.clientY - startY;
+    const absOffsetX = Math.abs(offsetX);
+    const absOffsetY = Math.abs(offsetY);
+
+    if (!isHorizontalDrag) {
+      if (absOffsetX < 6 && absOffsetY < 6) {
+        return;
+      }
+
+      if (absOffsetY > absOffsetX) {
+        isTracking = false;
+        resetDrag({ animate: false });
+        return;
+      }
+
+      isHorizontalDrag = true;
+      element.classList.add("is-swipe-dragging");
+    }
+
+    if (offsetX <= 0) {
+      dragX = 0;
+      element.style.transform = "";
+      return;
+    }
+
+    dragX = Math.min(offsetX, SWIPE_MAX_DRAG_PX);
+    element.style.transform = `translateX(${dragX}px)`;
+  };
+
+  const finishInteraction = () => {
+    const shouldTrigger = dragX >= SWIPE_TOGGLE_TRIGGER_PX;
+    const hadDrag = isHorizontalDrag;
+    isTracking = false;
+    isHorizontalDrag = false;
+    pointerId = null;
+
+    resetDrag({ animate: true });
+
+    if (!hadDrag || !shouldTrigger) {
+      return;
+    }
+
+    element.dataset.swipeIgnoreClick = "1";
+    setTimeout(() => {
+      if (element.dataset.swipeIgnoreClick === "1") {
+        element.dataset.swipeIgnoreClick = "";
+      }
+    }, 260);
+
+    onToggle();
+  };
+
+  const onPointerUp = (event) => {
+    if (!isTracking || event.pointerId !== pointerId) {
+      return;
+    }
+
+    finishInteraction();
+  };
+
+  const onPointerCancel = (event) => {
+    if (!isTracking || event.pointerId !== pointerId) {
+      return;
+    }
+
+    isTracking = false;
+    isHorizontalDrag = false;
+    pointerId = null;
+    resetDrag({ animate: true });
+  };
+
+  element.addEventListener("pointerdown", onPointerDown);
+  element.addEventListener("pointermove", onPointerMove);
+  element.addEventListener("pointerup", onPointerUp);
+  element.addEventListener("pointercancel", onPointerCancel);
 }
 
 function createId() {
@@ -366,16 +1064,12 @@ function getRequirementYear() {
 }
 
 function calculateYearGroupFromBirthDate(birthDate, referenceYear = getCurrentYear()) {
-  if (!birthDate) {
+  const birthYear = Number(extractBirthYear(birthDate));
+  if (!Number.isFinite(birthYear)) {
     return "-";
   }
 
-  const birth = new Date(`${birthDate}T00:00:00`);
-  if (Number.isNaN(birth.getTime())) {
-    return "-";
-  }
-
-  return Math.max(0, referenceYear - birth.getFullYear());
+  return Math.max(0, referenceYear - birthYear);
 }
 
 function athleteCode(athlete) {
@@ -458,6 +1152,93 @@ function getRecentBirthdayInfo(birthDate, lookbackDays = 14) {
 
 function athleteDisplayName(athlete) {
   return `${athlete.firstName} ${athlete.lastName}`.trim();
+}
+
+function athleteHasMissingProfileInfo(athlete) {
+  if (!athlete) {
+    return false;
+  }
+
+  const missingFirstName = !normalizeText(athlete.firstName);
+  const missingLastName = !normalizeText(athlete.lastName);
+  const missingFullBirthDate = !isFullBirthDateValue(athlete.birthDate);
+  return missingFirstName || missingLastName || missingFullBirthDate;
+}
+
+function getAthleteMissingDigitalRequiredFields(athlete) {
+  if (!athlete) {
+    return [];
+  }
+
+  const missing = [];
+  if (!normalizeText(athlete.firstName)) {
+    missing.push("Vorname");
+  }
+  if (!normalizeText(athlete.lastName)) {
+    missing.push("Nachname");
+  }
+  if (!isFullBirthDateValue(athlete.birthDate)) {
+    missing.push("Geburtsdatum");
+  }
+  if (!normalizeText(athlete.zip)) {
+    missing.push("PLZ");
+  }
+  if (!normalizeText(athlete.city)) {
+    missing.push("Ort");
+  }
+
+  return missing;
+}
+
+function getAthleteWarningState(athlete) {
+  if (!athlete) {
+    return null;
+  }
+
+  if (athleteHasMissingProfileInfo(athlete)) {
+    return {
+      level: "danger",
+      title: "Profil unvollstaendig: Vorname/Nachname oder volles Geburtsdatum fehlt."
+    };
+  }
+
+  const hasBaseRequiredData = !!extractBirthYear(athlete.birthDate) && ["M", "W"].includes(athlete.gender);
+  if (!hasBaseRequiredData) {
+    return null;
+  }
+
+  const missingDigitalFields = getAthleteMissingDigitalRequiredFields(athlete);
+  if (missingDigitalFields.length === 0) {
+    return null;
+  }
+
+  return {
+    level: "warning",
+    title: `Fuer Sportabzeichen Digital fehlen: ${missingDigitalFields.join(", ")}.`
+  };
+}
+
+function createAthleteWarningIndicator(athlete, { detail = false } = {}) {
+  const warningState = getAthleteWarningState(athlete);
+  if (!warningState) {
+    return null;
+  }
+
+  const indicator = document.createElement("span");
+  indicator.className = `athlete-warning-indicator athlete-warning-indicator--${warningState.level}`;
+  if (detail) {
+    indicator.classList.add("athlete-warning-indicator--detail");
+  }
+
+  indicator.title = warningState.title;
+  indicator.setAttribute("aria-label", warningState.title);
+
+  const mark = document.createElement("span");
+  mark.className = "athlete-warning-indicator-mark";
+  mark.textContent = "!";
+  indicator.append(mark);
+
+  return indicator;
 }
 
 function toDateTimeLocalValue(isoDate) {
@@ -570,13 +1351,23 @@ function normalizeAthleteRecord(record) {
     firstName: normalizeText(record.firstName),
     lastName: normalizeText(record.lastName),
     gender: record.gender === "W" ? "W" : "M",
-    birthDate: normalizeText(record.birthDate),
+    birthDate: (() => {
+      const fullBirthDate = normalizeText(record.birthDate);
+      if (isFullBirthDateValue(fullBirthDate)) {
+        return fullBirthDate;
+      }
+
+      return extractBirthYear(record.birthYear || fullBirthDate);
+    })(),
     dsaId: normalizeText(record.dsaId),
     associationBadgeId: normalizeText(record.associationBadgeId),
     associationBadgeLevel: normalizeText(record.associationBadgeLevel),
     zip: normalizeText(record.zip),
     city: normalizeText(record.city),
     country: normalizeText(record.country) || "Deutschland",
+    email: normalizeText(record.email),
+    emergencyEmails: normalizeEmergencyEmailList(record.emergencyEmails),
+    emergencyPhones: normalizeEmergencyPhoneList(record.emergencyPhones),
     swimProofYear: normalizeYearValue(record.swimProofYear),
     swimProofSelection: normalizedSwimProofSelection,
     swimProofPerformance: normalizeText(record.swimProofPerformance || record.swimProofValue),
@@ -640,6 +1431,178 @@ function normalizeGroupRecord(record) {
     createdAt: record.createdAt || now,
     updatedAt: record.updatedAt || record.createdAt || now
   };
+}
+
+function normalizeCustomDisciplineInputType(inputType) {
+  const normalized = normalizeText(inputType);
+  if (["level", "count", "value", "time_seconds", "time_mm_ss"].includes(normalized)) {
+    return normalized;
+  }
+
+  return "value";
+}
+
+function normalizeCustomDisciplineBetter(better, inputType = "") {
+  const normalizedBetter = normalizeText(better);
+  if (normalizedBetter === "higher" || normalizedBetter === "lower") {
+    return normalizedBetter;
+  }
+
+  const normalizedInputType = normalizeCustomDisciplineInputType(inputType);
+  if (normalizedInputType === "time_seconds" || normalizedInputType === "time_mm_ss") {
+    return "lower";
+  }
+
+  return "higher";
+}
+
+function normalizeCustomDisciplineExecutions(rawValue) {
+  const values = Array.isArray(rawValue)
+    ? rawValue
+    : String(rawValue || "").split(/[\n;,]/g);
+
+  const normalized = [];
+  const seen = new Set();
+  for (const value of values) {
+    const clean = normalizeText(value);
+    if (!clean) {
+      continue;
+    }
+
+    const key = clean.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    normalized.push(clean);
+  }
+
+  return normalized;
+}
+
+function normalizeCustomDisciplineRecord(record) {
+  if (!record || typeof record !== "object") {
+    return null;
+  }
+
+  const name = normalizeText(record.name);
+  if (!name) {
+    return null;
+  }
+
+  const inputType = normalizeCustomDisciplineInputType(record.inputType);
+  const executions = normalizeCustomDisciplineExecutions(record.executions);
+  const now = new Date().toISOString();
+
+  return {
+    id: normalizeText(record.id) || createId(),
+    name,
+    inputType,
+    better: normalizeCustomDisciplineBetter(record.better, inputType),
+    description: normalizeText(record.description),
+    executions,
+    createdAt: record.createdAt || now,
+    updatedAt: record.updatedAt || record.createdAt || now
+  };
+}
+
+function loadCustomDisciplines() {
+  const rawData = localStorage.getItem(CUSTOM_DISCIPLINES_STORAGE_KEY);
+  if (!rawData) {
+    state.customDisciplines = [];
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(rawData);
+    const entries = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.customDisciplines) ? parsed.customDisciplines : [];
+    state.customDisciplines = entries
+      .map((entry) => normalizeCustomDisciplineRecord(entry))
+      .filter(Boolean)
+      .sort((left, right) => normalizeText(left.name).localeCompare(normalizeText(right.name), "de"));
+  } catch (_error) {
+    state.customDisciplines = [];
+  }
+}
+
+function saveCustomDisciplines() {
+  localStorage.setItem(CUSTOM_DISCIPLINES_STORAGE_KEY, JSON.stringify(state.customDisciplines));
+}
+
+function getCustomDisciplineById(customDisciplineId) {
+  const normalizedId = normalizeText(customDisciplineId);
+  if (!normalizedId) {
+    return null;
+  }
+
+  return state.customDisciplines.find((entry) => entry.id === normalizedId) || null;
+}
+
+function getCustomDisciplineUnitType(inputType) {
+  const normalizedInputType = normalizeCustomDisciplineInputType(inputType);
+  if (normalizedInputType === "time_seconds") {
+    return "time_seconds";
+  }
+  if (normalizedInputType === "time_mm_ss") {
+    return "time_mm_ss";
+  }
+  if (normalizedInputType === "level") {
+    return "level";
+  }
+
+  return "number";
+}
+
+function createCustomDisciplineRules(customDiscipline) {
+  if (!customDiscipline) {
+    return [];
+  }
+
+  const unitType = getCustomDisciplineUnitType(customDiscipline.inputType);
+  const better = normalizeCustomDisciplineBetter(customDiscipline.better, customDiscipline.inputType);
+  const executionValues = Array.isArray(customDiscipline.executions) && customDiscipline.executions.length > 0
+    ? customDiscipline.executions
+    : [""];
+
+  return executionValues.map((executionLabel, executionIndex) => {
+    const variant = normalizeText(executionLabel);
+    const disciplineKey = `custom:${customDiscipline.id}`;
+    const disciplineCode = variant ? `exec:${executionIndex + 1}:${variant.toLowerCase()}` : "exec:default";
+
+    return {
+      category: "Eigene Disziplinen",
+      disciplineName: variant ? `${customDiscipline.name}, ${variant}` : customDiscipline.name,
+      disciplineBaseName: customDiscipline.name,
+      disciplineVariant: variant || null,
+      disciplineKey,
+      disciplineCode,
+      catalogCode: disciplineCode,
+      unitType,
+      better,
+      thresholdsRaw: unitType === "level"
+        ? { bronze: "1", silver: "2", gold: "3" }
+        : { bronze: "-", silver: "-", gold: "-" },
+      thresholdsNormalized: unitType === "level"
+        ? { bronze: 1, silver: 2, gold: 3 }
+        : { bronze: NaN, silver: NaN, gold: NaN },
+      customDisciplineId: customDiscipline.id,
+      customDescription: normalizeText(customDiscipline.description)
+    };
+  });
+}
+
+function getAllCustomDisciplineRules() {
+  if (!Array.isArray(state.customDisciplines) || state.customDisciplines.length === 0) {
+    return [];
+  }
+
+  const rules = [];
+  for (const customDiscipline of state.customDisciplines) {
+    rules.push(...createCustomDisciplineRules(customDiscipline));
+  }
+
+  return rules;
 }
 
 function loadAthletes() {
@@ -754,10 +1717,12 @@ function normalizeTrainingExamSession(rawSession) {
 function loadTrainingState() {
   state.trainingViewMode = "requirements";
   state.trainingSelectedDisciplineId = "";
+  state.trainingSelectedExecutionByDiscipline = {};
   state.trainingCompactPane = "list";
   state.trainingMarkedAthleteIds = [];
   state.trainingInputDrafts = {};
   state.trainingExamSessions = {};
+  state.trainingDailyInactiveAthleteIds = {};
 
   const rawData = localStorage.getItem(TRAINING_STATE_STORAGE_KEY);
   if (!rawData) {
@@ -769,12 +1734,14 @@ function loadTrainingState() {
     const parsedMode = normalizeText(parsed?.trainingViewMode);
     state.trainingViewMode = parsedMode === "exam" ? "exam" : "requirements";
     state.trainingSelectedDisciplineId = normalizeText(parsed?.trainingSelectedDisciplineId);
+    state.trainingSelectedExecutionByDiscipline = normalizeTrainingSelectedExecutionMap(parsed?.trainingSelectedExecutionByDiscipline);
     state.trainingCompactPane = normalizeText(parsed?.trainingCompactPane) === "content" ? "content" : "list";
 
     const markedAthleteIds = Array.isArray(parsed?.trainingMarkedAthleteIds)
       ? parsed.trainingMarkedAthleteIds.map((athleteId) => normalizeText(athleteId)).filter(Boolean)
       : [];
     state.trainingMarkedAthleteIds = Array.from(new Set(markedAthleteIds));
+    state.trainingDailyInactiveAthleteIds = normalizeTrainingDailyInactiveAthleteIds(parsed?.trainingDailyInactiveAthleteIds);
 
     if (parsed?.trainingExamSessions && typeof parsed.trainingExamSessions === "object") {
       for (const [disciplineIdRaw, rawSession] of Object.entries(parsed.trainingExamSessions)) {
@@ -789,10 +1756,12 @@ function loadTrainingState() {
   } catch (_error) {
     state.trainingViewMode = "requirements";
     state.trainingSelectedDisciplineId = "";
+    state.trainingSelectedExecutionByDiscipline = {};
     state.trainingCompactPane = "list";
     state.trainingMarkedAthleteIds = [];
     state.trainingInputDrafts = {};
     state.trainingExamSessions = {};
+    state.trainingDailyInactiveAthleteIds = {};
   }
 }
 
@@ -800,9 +1769,11 @@ function saveTrainingState() {
   const payload = {
     trainingViewMode: state.trainingViewMode,
     trainingSelectedDisciplineId: state.trainingSelectedDisciplineId,
+    trainingSelectedExecutionByDiscipline: normalizeTrainingSelectedExecutionMap(state.trainingSelectedExecutionByDiscipline),
     trainingCompactPane: state.trainingCompactPane,
     trainingMarkedAthleteIds: Array.isArray(state.trainingMarkedAthleteIds) ? state.trainingMarkedAthleteIds.slice() : [],
-    trainingExamSessions: state.trainingExamSessions
+    trainingExamSessions: state.trainingExamSessions,
+    trainingDailyInactiveAthleteIds: normalizeTrainingDailyInactiveAthleteIds(state.trainingDailyInactiveAthleteIds)
   };
 
   localStorage.setItem(TRAINING_STATE_STORAGE_KEY, JSON.stringify(payload));
@@ -1481,9 +2452,10 @@ function getTotalPerformanceEntryCount() {
   return count;
 }
 
-function renderResultsSummaryStats() {
+function renderResultsSummaryStats(athletes = state.athletes) {
+  const scopedAthletes = Array.isArray(athletes) ? athletes : state.athletes;
   if (resultsTotalAthletes) {
-    resultsTotalAthletes.textContent = String(state.athletes.length);
+    resultsTotalAthletes.textContent = String(scopedAthletes.length);
   }
 
   if (resultsTotalGroups) {
@@ -1491,7 +2463,1076 @@ function renderResultsSummaryStats() {
   }
 
   if (resultsTotalPerformances) {
-    resultsTotalPerformances.textContent = String(getTotalPerformanceEntryCount());
+    const totalPerformances = scopedAthletes.reduce((sum, athlete) => sum + getAthletePerformanceEntryCount(athlete), 0);
+    resultsTotalPerformances.textContent = String(totalPerformances);
+  }
+}
+
+function setMorePage(pageKey, { force = false } = {}) {
+  const normalizedPage = normalizeText(pageKey);
+  const allowed = new Set(["home", "insights", "transfer", "mailer", "merge", "custom", "certificate"]);
+  const nextPage = allowed.has(normalizedPage) ? normalizedPage : "home";
+
+  if (!force && state.morePage === nextPage) {
+    return;
+  }
+
+  state.morePage = nextPage;
+  renderMorePageNavigationState();
+}
+
+function renderMorePageNavigationState() {
+  if (morePageNav) {
+    const buttons = Array.from(morePageNav.querySelectorAll("[data-more-page]"));
+    for (const button of buttons) {
+      const isActive = normalizeText(button.dataset.morePage) === state.morePage;
+      button.classList.toggle("is-active", isActive);
+      if (isActive) {
+        button.setAttribute("aria-current", "page");
+      } else {
+        button.removeAttribute("aria-current");
+      }
+    }
+  }
+
+  if (morePagePanels) {
+    const panels = Array.from(morePagePanels.querySelectorAll("[data-more-page-panel]"));
+    for (const panel of panels) {
+      const isActive = normalizeText(panel.dataset.morePagePanel) === state.morePage;
+      panel.classList.toggle("is-active", isActive);
+      panel.hidden = !isActive;
+    }
+  }
+
+  if (resultsDisclaimerSection) {
+    resultsDisclaimerSection.hidden = state.morePage !== "home";
+  }
+}
+
+function getAthletePerformanceEntryCount(athlete) {
+  const performances = athlete?.performances;
+  if (!performances || typeof performances !== "object") {
+    return 0;
+  }
+
+  let count = 0;
+  for (const entries of Object.values(performances)) {
+    if (Array.isArray(entries)) {
+      count += entries.length;
+    }
+  }
+
+  return count;
+}
+
+function getAgeBucketLabel(ageValue) {
+  const age = Number(ageValue);
+  if (!Number.isFinite(age) || age < 0) {
+    return "Unbekannt";
+  }
+  if (age <= 7) {
+    return "<=7";
+  }
+  if (age <= 11) {
+    return "8-11";
+  }
+  if (age <= 17) {
+    return "12-17";
+  }
+  if (age <= 26) {
+    return "18-26";
+  }
+  if (age <= 40) {
+    return "27-40";
+  }
+  if (age <= 59) {
+    return "41-59";
+  }
+  return "60+";
+}
+
+function buildRecentMonthKeys(monthCount = 6) {
+  const now = new Date();
+  const keys = [];
+  for (let offset = monthCount - 1; offset >= 0; offset -= 1) {
+    const pointInMonth = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+    const key = `${pointInMonth.getFullYear()}-${String(pointInMonth.getMonth() + 1).padStart(2, "0")}`;
+    keys.push(key);
+  }
+  return keys;
+}
+
+function buildDayKeyRange(startDate, endDate) {
+  const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    return [];
+  }
+
+  const keys = [];
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    keys.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return keys;
+}
+
+function buildMonthKeyRange(startDate, endDate) {
+  const start = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    return [];
+  }
+
+  const keys = [];
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    keys.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`);
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return keys;
+}
+
+function normalizeMoreActivityRange(rangeValue) {
+  const normalized = normalizeText(rangeValue);
+  if (["week", "month", "year", "all"].includes(normalized)) {
+    return normalized;
+  }
+  return "month";
+}
+
+function buildRecentDayKeys(dayCount = 7) {
+  const now = new Date();
+  const keys = [];
+  for (let offset = dayCount - 1; offset >= 0; offset -= 1) {
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
+    const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    keys.push(key);
+  }
+  return keys;
+}
+
+function formatActivityKeyFromDate(date, range) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  if (range === "week" || range === "month") {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getAllActivityMonthKeys(athletes = state.athletes) {
+  const monthKeys = [];
+  for (const athlete of athletes) {
+    const performances = athlete?.performances;
+    if (!performances || typeof performances !== "object") {
+      continue;
+    }
+
+    for (const entries of Object.values(performances)) {
+      if (!Array.isArray(entries)) {
+        continue;
+      }
+
+      for (const entry of entries) {
+        const measuredAt = new Date(entry?.measuredAt);
+        if (Number.isNaN(measuredAt.getTime())) {
+          continue;
+        }
+        monthKeys.push(`${measuredAt.getFullYear()}-${String(measuredAt.getMonth() + 1).padStart(2, "0")}`);
+      }
+    }
+  }
+
+  return monthKeys.sort();
+}
+
+function getAthletesForMoreInsightsScope() {
+  const scope = normalizeText(state.moreInsightsScope) || "all";
+  if (scope.startsWith("athlete:")) {
+    const athleteId = normalizeText(scope.slice("athlete:".length));
+    const athlete = state.athletes.find((entry) => entry.id === athleteId) || null;
+    return athlete ? [athlete] : state.athletes.slice();
+  }
+
+  if (scope === "all") {
+    return state.athletes.slice();
+  }
+
+  const group = getGroupById(scope);
+  if (!group) {
+    return state.athletes.slice();
+  }
+
+  const memberIds = new Set((Array.isArray(group.athleteIds) ? group.athleteIds : []).map((athleteId) => normalizeText(athleteId)).filter(Boolean));
+  return state.athletes.filter((athlete) => memberIds.has(athlete.id));
+}
+
+function renderMoreInsightsScopeOptions() {
+  if (!moreInsightsScopeSelect) {
+    return;
+  }
+
+  const availableGroupIds = new Set(state.groups.map((group) => group.id));
+  const scopeValue = normalizeText(state.moreInsightsScope);
+  const isAthleteScope = scopeValue.startsWith("athlete:");
+  if (scopeValue !== "all" && !isAthleteScope && !availableGroupIds.has(scopeValue)) {
+    state.moreInsightsScope = "all";
+  }
+
+  const previousValue = normalizeText(state.moreInsightsScope) || "all";
+  moreInsightsScopeSelect.innerHTML = "";
+
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = "Alle Athleten";
+  moreInsightsScopeSelect.append(allOption);
+
+  const sortedGroups = [...state.groups].sort((left, right) => normalizeText(left.name).localeCompare(normalizeText(right.name), "de"));
+  for (const group of sortedGroups) {
+    const option = document.createElement("option");
+    option.value = group.id;
+    option.textContent = `Gruppe ${normalizeText(group.name) || "Unbenannt"}`;
+    moreInsightsScopeSelect.append(option);
+  }
+
+  if (previousValue.startsWith("athlete:")) {
+    const athleteId = normalizeText(previousValue.slice("athlete:".length));
+    const athlete = state.athletes.find((entry) => entry.id === athleteId) || null;
+    if (athlete) {
+      const option = document.createElement("option");
+      option.value = `athlete:${athlete.id}`;
+      option.textContent = `Athlet ${athleteDisplayName(athlete) || athleteCode(athlete)}`;
+      moreInsightsScopeSelect.append(option);
+    }
+  }
+
+  const hasPrevious = Array.from(moreInsightsScopeSelect.options).some((option) => normalizeText(option.value) === previousValue);
+  moreInsightsScopeSelect.value = hasPrevious ? previousValue : "all";
+  state.moreInsightsScope = normalizeText(moreInsightsScopeSelect.value) || "all";
+
+  if (moreInsightsGroupCount) {
+    moreInsightsGroupCount.textContent = `Gruppen: ${state.groups.length}`;
+  }
+}
+
+function openMoreInsightsForAthlete(athleteId) {
+  const normalizedAthleteId = normalizeText(athleteId);
+  if (!normalizedAthleteId) {
+    return;
+  }
+
+  const athlete = state.athletes.find((entry) => entry.id === normalizedAthleteId) || null;
+  if (!athlete) {
+    return;
+  }
+
+  state.moreInsightsScope = `athlete:${athlete.id}`;
+  switchView("results");
+  setMorePage("insights", { force: true });
+  renderMoreInsights();
+}
+
+function collectMoreInsightsStats(athletes = state.athletes) {
+  const scopedAthletes = Array.isArray(athletes) ? athletes : state.athletes;
+  const categoryAchievementSummary = {
+    Ausdauer: { empty: 0, bronze: 0, silber: 0, gold: 0 },
+    Schnelligkeit: { empty: 0, bronze: 0, silber: 0, gold: 0 },
+    Kraft: { empty: 0, bronze: 0, silber: 0, gold: 0 },
+    Koordination: { empty: 0, bronze: 0, silber: 0, gold: 0 },
+    Schwimmen: { empty: 0, gold: 0 }
+  };
+  const overallAchievementSummary = {
+    empty: 0,
+    bronze: 0,
+    silber: 0,
+    gold: 0
+  };
+  const strengthSums = {
+    Ausdauer: 0,
+    Schnelligkeit: 0,
+    Kraft: 0,
+    Koordination: 0,
+    Schwimmen: 0
+  };
+  const ageBuckets = {
+    "<=7": 0,
+    "8-11": 0,
+    "12-17": 0,
+    "18-26": 0,
+    "27-40": 0,
+    "41-59": 0,
+    "60+": 0,
+    Unbekannt: 0
+  };
+
+  for (const athlete of scopedAthletes) {
+    const requirementGroup = getRequirementGroupForAthlete(athlete);
+    const categoryLevels = getAthleteCategoryLevels(athlete, requirementGroup);
+    const overallLevel = getOverallAwardLevel(categoryLevels);
+
+    for (const categoryName of CATEGORY_ORDER) {
+      const levelRank = getLevelRank(categoryLevels[categoryName]);
+      if (levelRank <= 0) {
+        categoryAchievementSummary[categoryName].empty += 1;
+      } else if (levelRank === 1) {
+        categoryAchievementSummary[categoryName].bronze += 1;
+      } else if (levelRank === 2) {
+        categoryAchievementSummary[categoryName].silber += 1;
+      } else {
+        categoryAchievementSummary[categoryName].gold += 1;
+      }
+    }
+
+    const swimRank = getLevelRank(categoryLevels.Schwimmen);
+    if (swimRank >= 1) {
+      categoryAchievementSummary.Schwimmen.gold += 1;
+    } else {
+      categoryAchievementSummary.Schwimmen.empty += 1;
+    }
+
+    for (const categoryName of Object.keys(strengthSums)) {
+      strengthSums[categoryName] += getLevelRank(categoryLevels[categoryName] || "-");
+    }
+
+    const overallRank = getLevelRank(overallLevel);
+    if (overallRank <= 0) {
+      overallAchievementSummary.empty += 1;
+    } else if (overallRank === 1) {
+      overallAchievementSummary.bronze += 1;
+    } else if (overallRank === 2) {
+      overallAchievementSummary.silber += 1;
+    } else {
+      overallAchievementSummary.gold += 1;
+    }
+
+    const ageValue = getRequirementAgeForAthlete(athlete);
+    const bucket = getAgeBucketLabel(ageValue);
+    ageBuckets[bucket] = (ageBuckets[bucket] || 0) + 1;
+
+  }
+
+  const denominator = scopedAthletes.length || 1;
+  const strengthAverages = Object.fromEntries(
+    Object.entries(strengthSums).map(([categoryName, sum]) => [categoryName, sum / denominator])
+  );
+
+  return {
+    categoryAchievementSummary,
+    overallAchievementSummary,
+    ageBuckets,
+    strengthAverages,
+    scopedAthleteCount: scopedAthletes.length
+  };
+}
+
+function collectMoreInsightsActivity(athletes = state.athletes) {
+  const scopedAthletes = Array.isArray(athletes) ? athletes : state.athletes;
+  const range = normalizeMoreActivityRange(state.moreInsightsActivityRange);
+  let keys = [];
+  let earliestDate = null;
+  let latestDate = null;
+
+  for (const athlete of scopedAthletes) {
+    const performances = athlete?.performances;
+    if (!performances || typeof performances !== "object") {
+      continue;
+    }
+
+    for (const entries of Object.values(performances)) {
+      if (!Array.isArray(entries)) {
+        continue;
+      }
+
+      for (const entry of entries) {
+        const measuredAt = new Date(entry?.measuredAt);
+        if (Number.isNaN(measuredAt.getTime())) {
+          continue;
+        }
+
+        if (!earliestDate || measuredAt < earliestDate) {
+          earliestDate = measuredAt;
+        }
+        if (!latestDate || measuredAt > latestDate) {
+          latestDate = measuredAt;
+        }
+      }
+    }
+  }
+
+  if (range === "week") {
+    keys = buildRecentDayKeys(7);
+  } else if (range === "month") {
+    keys = buildRecentDayKeys(30);
+  } else if (range === "year") {
+    if (earliestDate && latestDate) {
+      const daySpan = Math.max(1, Math.floor((latestDate - earliestDate) / 86400000) + 1);
+      keys = daySpan <= 90 ? buildDayKeyRange(earliestDate, latestDate) : buildMonthKeyRange(earliestDate, latestDate);
+    } else {
+      keys = buildRecentMonthKeys(12);
+    }
+  } else {
+    if (earliestDate && latestDate) {
+      keys = buildMonthKeyRange(earliestDate, latestDate);
+    } else {
+      keys = buildRecentMonthKeys(12);
+    }
+  }
+
+  const activity = Object.fromEntries(keys.map((key) => [key, 0]));
+
+  for (const athlete of scopedAthletes) {
+    const performances = athlete?.performances;
+    if (!performances || typeof performances !== "object") {
+      continue;
+    }
+
+    for (const entries of Object.values(performances)) {
+      if (!Array.isArray(entries)) {
+        continue;
+      }
+
+      for (const entry of entries) {
+        const measuredAt = new Date(entry?.measuredAt);
+        if (Number.isNaN(measuredAt.getTime())) {
+          continue;
+        }
+        const key = formatActivityKeyFromDate(measuredAt, range);
+        if (key in activity) {
+          activity[key] += 1;
+        }
+      }
+    }
+  }
+
+  return {
+    range,
+    activity
+  };
+}
+
+function clearChartWithMessage(container, emptyLabel) {
+  if (!container) {
+    return true;
+  }
+
+  container.innerHTML = "";
+  if (emptyLabel) {
+    const empty = document.createElement("p");
+    empty.className = "group-empty-note";
+    empty.textContent = emptyLabel;
+    container.append(empty);
+    return true;
+  }
+
+  return false;
+}
+
+function createCategoryLabelWithIcon(categoryName, className = "") {
+  const wrap = document.createElement("span");
+  wrap.className = `more-category-label ${className}`.trim();
+
+  const icon = createStatusIconElement(categoryName, "Gold", "status-icon--tiny");
+  const text = document.createElement("span");
+  text.textContent = categoryName;
+
+  wrap.append(icon, text);
+  return wrap;
+}
+
+function renderMissingCategoryChart(container, categoryAchievementSummary, scopedAthleteCount, overallAchievementSummary = null) {
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+  const categoryRows = Object.entries(categoryAchievementSummary || {});
+  if (overallAchievementSummary && typeof overallAchievementSummary === "object") {
+    categoryRows.unshift(["Insgesamt", overallAchievementSummary]);
+  }
+  if (categoryRows.length === 0) {
+    clearChartWithMessage(container, "Keine Daten verfuegbar.");
+    return;
+  }
+
+  const total = Math.max(1, Number(scopedAthleteCount) || 0);
+  if ((Number(scopedAthleteCount) || 0) <= 0) {
+    clearChartWithMessage(container, "Keine Daten fuer den gewaehlten Zeitraum oder Scope.");
+    return;
+  }
+
+  const createMetricBar = (label, value, cssModifier) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `more-tooltip-target more-missing-bar more-missing-bar--${cssModifier}`;
+    const numericValue = Number(value) || 0;
+    if (numericValue <= 0) {
+      return null;
+    }
+
+    button.style.width = `${Math.max(3, (numericValue / total) * 100)}%`;
+    button.dataset.tooltip = `${label}: ${numericValue} von ${total}`;
+    button.title = `${label}: ${numericValue} von ${total}`;
+    button.setAttribute("aria-label", `${label}: ${numericValue} von ${total}`);
+    return button;
+  };
+
+  for (const [categoryName, values] of categoryRows) {
+    const row = document.createElement("div");
+    row.className = "more-missing-row";
+
+    const label = categoryName === "Insgesamt"
+      ? (() => {
+        const textLabel = document.createElement("span");
+        textLabel.className = "more-missing-label";
+        textLabel.textContent = categoryName;
+        return textLabel;
+      })()
+      : createCategoryLabelWithIcon(categoryName, "more-missing-label");
+
+    const bars = document.createElement("div");
+    bars.className = "more-missing-bars";
+
+    if (categoryName === "Schwimmen") {
+      const emptyBar = createMetricBar(`${categoryName} | Nicht erreicht`, values?.empty || 0, "none");
+      const goldBar = createMetricBar(`${categoryName} | Gold`, values?.gold || 0, "gold");
+      if (emptyBar) {
+        bars.append(emptyBar);
+      }
+      if (goldBar) {
+        bars.append(goldBar);
+      }
+    } else {
+      const emptyBar = createMetricBar(`${categoryName} | Nicht erreicht`, values?.empty || 0, "none");
+      const bronzeBar = createMetricBar(`${categoryName} | Bronze`, values?.bronze || 0, "bronze");
+      const silberBar = createMetricBar(`${categoryName} | Silber`, values?.silber || 0, "silber");
+      const goldBar = createMetricBar(`${categoryName} | Gold`, values?.gold || 0, "gold");
+      if (emptyBar) {
+        bars.append(emptyBar);
+      }
+      if (bronzeBar) {
+        bars.append(bronzeBar);
+      }
+      if (silberBar) {
+        bars.append(silberBar);
+      }
+      if (goldBar) {
+        bars.append(goldBar);
+      }
+    }
+
+    if (!bars.childNodes.length) {
+      const fallback = createMetricBar(`${categoryName} | Leer`, 0, "none");
+      if (fallback) {
+        bars.append(fallback);
+      }
+    }
+
+    row.append(label, bars);
+    container.append(row);
+  }
+}
+
+function polarPoint(cx, cy, radius, angleDeg) {
+  const angleRad = ((angleDeg - 90) * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(angleRad),
+    y: cy + radius * Math.sin(angleRad)
+  };
+}
+
+function createSvgElement(tagName, attributes = {}) {
+  const element = document.createElementNS("http://www.w3.org/2000/svg", tagName);
+  for (const [name, value] of Object.entries(attributes)) {
+    element.setAttribute(name, String(value));
+  }
+  return element;
+}
+
+function createDonutSegmentPath(cx, cy, innerRadius, outerRadius, startAngle, endAngle) {
+  const startOuter = polarPoint(cx, cy, outerRadius, startAngle);
+  const endOuter = polarPoint(cx, cy, outerRadius, endAngle);
+  const startInner = polarPoint(cx, cy, innerRadius, startAngle);
+  const endInner = polarPoint(cx, cy, innerRadius, endAngle);
+  const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
+
+  return [
+    `M ${startOuter.x.toFixed(2)} ${startOuter.y.toFixed(2)}`,
+    `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${endOuter.x.toFixed(2)} ${endOuter.y.toFixed(2)}`,
+    `L ${endInner.x.toFixed(2)} ${endInner.y.toFixed(2)}`,
+    `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${startInner.x.toFixed(2)} ${startInner.y.toFixed(2)}`,
+    "Z"
+  ].join(" ");
+}
+
+function renderAgeDonutChart(container, ageBuckets, { isSingleAthleteScope = false } = {}) {
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+  if (isSingleAthleteScope) {
+    clearChartWithMessage(container, "Altersklassen sind fuer einzelne Athleten nicht verfuegbar.");
+    return;
+  }
+
+  const rows = Object.entries(ageBuckets || {})
+    .map(([label, value]) => ({ label, value: Number(value) || 0 }))
+    .filter((row) => row.value > 0);
+
+  const total = rows.reduce((sum, row) => sum + row.value, 0);
+  if (total <= 0) {
+    clearChartWithMessage(container, "Keine Altersdaten verfuegbar.");
+    return;
+  }
+
+  const palette = ["#2d7ff9", "#30a35d", "#f2a93b", "#d46262", "#7a6ad8", "#1aa7a1", "#8a7b6a", "#657a8e"];
+  const wrap = document.createElement("div");
+  wrap.className = "more-svg-chart-wrap more-svg-chart-wrap--side-legend";
+
+  const svg = createSvgElement("svg", {
+    class: "more-svg-chart more-svg-chart--donut",
+    viewBox: "0 0 280 220",
+    role: "img",
+    "aria-label": "Altersklassen als Ringdiagramm"
+  });
+
+  const cx = 108;
+  const cy = 110;
+  const outerRadius = 78;
+  const innerRadius = 42;
+  let startAngle = 0;
+
+  rows.forEach((row, index) => {
+    const rowKey = `${row.label}-${index}`;
+    const sweep = (row.value / total) * 360;
+    const endAngle = startAngle + sweep;
+    const segmentPath = createDonutSegmentPath(cx, cy, innerRadius, outerRadius, startAngle, endAngle);
+    const segment = createSvgElement("path", {
+      d: segmentPath,
+      fill: palette[index % palette.length],
+      class: "more-svg-donut-segment"
+    });
+    segment.dataset.ageBucketKey = rowKey;
+    segment.style.transformOrigin = `${cx}px ${cy}px`;
+
+    const title = createSvgElement("title");
+    title.textContent = `${row.label}: ${row.value}`;
+    segment.append(title);
+    svg.append(segment);
+    startAngle = endAngle;
+  });
+
+  const centerText = createSvgElement("text", {
+    x: cx,
+    y: cy - 2,
+    "text-anchor": "middle",
+    class: "more-svg-center-value"
+  });
+  centerText.textContent = String(total);
+
+  const centerLabel = createSvgElement("text", {
+    x: cx,
+    y: cy + 16,
+    "text-anchor": "middle",
+    class: "more-svg-center-label"
+  });
+  centerLabel.textContent = "Athleten";
+
+  svg.append(centerText, centerLabel);
+
+  const legend = document.createElement("div");
+  legend.className = "more-svg-legend";
+  rows.forEach((row, index) => {
+    const rowKey = `${row.label}-${index}`;
+    const item = document.createElement("div");
+    item.className = "more-svg-legend-item";
+    item.dataset.ageBucketKey = rowKey;
+
+    const swatch = document.createElement("span");
+    swatch.className = "more-svg-legend-swatch";
+    swatch.style.background = palette[index % palette.length];
+
+    const label = document.createElement("span");
+    label.textContent = `${row.label}: ${row.value}`;
+
+    item.append(swatch, label);
+    legend.append(item);
+  });
+
+  const ageKeyToElements = new Map();
+  const registerAgeElement = (element, key) => {
+    if (!ageKeyToElements.has(key)) {
+      ageKeyToElements.set(key, []);
+    }
+    ageKeyToElements.get(key).push(element);
+  };
+
+  for (const element of Array.from(svg.querySelectorAll("[data-age-bucket-key]"))) {
+    registerAgeElement(element, element.dataset.ageBucketKey);
+  }
+  for (const element of Array.from(legend.querySelectorAll("[data-age-bucket-key]"))) {
+    registerAgeElement(element, element.dataset.ageBucketKey);
+  }
+
+  const toggleHover = (bucketKey, active) => {
+    const elements = ageKeyToElements.get(bucketKey) || [];
+    for (const element of elements) {
+      element.classList.toggle("is-hovered", active);
+    }
+  };
+
+  ageKeyToElements.forEach((elements, bucketKey) => {
+    for (const element of elements) {
+      element.addEventListener("mouseenter", () => toggleHover(bucketKey, true));
+      element.addEventListener("mouseleave", () => toggleHover(bucketKey, false));
+      element.addEventListener("focus", () => toggleHover(bucketKey, true));
+      element.addEventListener("blur", () => toggleHover(bucketKey, false));
+    }
+  });
+
+  wrap.append(svg, legend);
+  container.append(wrap);
+}
+
+function formatActivityXAxisLabel(key, range) {
+  const normalizedRange = normalizeMoreActivityRange(range);
+  if (normalizedRange === "week" || normalizedRange === "month" || normalizedRange === "all") {
+    const date = new Date(`${key}T00:00:00`);
+    if (!Number.isNaN(date.getTime())) {
+      return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}.`;
+    }
+    return key;
+  }
+
+  const monthText = key.slice(5, 7);
+  const yearText = key.slice(2, 4);
+  return `${monthText}/${yearText}`;
+}
+
+function renderActivityAreaChart(container, activitySeries, range = "month") {
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+  const rows = Object.entries(activitySeries || {}).map(([label, value]) => ({ label, value: Number(value) || 0 }));
+  if (rows.length === 0) {
+    clearChartWithMessage(container, "Keine Aktivitaet verfuegbar.");
+    return;
+  }
+
+  const width = 560;
+  const height = 240;
+  const padding = { top: 18, right: 20, bottom: 34, left: 34 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const maxValue = Math.max(...rows.map((row) => row.value), 1);
+  const xStep = rows.length > 1 ? chartWidth / (rows.length - 1) : 0;
+  const maxLabelCount = 12;
+  const labelStep = Math.max(1, Math.ceil(rows.length / maxLabelCount));
+  const shouldRenderDots = rows.length <= 120;
+
+  const points = rows.map((row, index) => {
+    const x = padding.left + xStep * index;
+    const y = padding.top + chartHeight - (row.value / maxValue) * chartHeight;
+    return { ...row, x, y };
+  });
+
+  const wrap = document.createElement("div");
+  wrap.className = "more-svg-chart-wrap";
+
+  const svg = createSvgElement("svg", {
+    class: "more-svg-chart",
+    viewBox: `0 0 ${width} ${height}`,
+    role: "img",
+    "aria-label": "Aktivitaet als Flaechen- und Liniendiagramm"
+  });
+
+  const baselineY = padding.top + chartHeight;
+  const areaPoints = [
+    `${points[0].x},${baselineY}`,
+    ...points.map((point) => `${point.x},${point.y}`),
+    `${points[points.length - 1].x},${baselineY}`
+  ].join(" ");
+
+  const area = createSvgElement("polygon", {
+    points: areaPoints,
+    class: "more-svg-area"
+  });
+
+  const line = createSvgElement("polyline", {
+    points: points.map((point) => `${point.x},${point.y}`).join(" "),
+    class: "more-svg-line"
+  });
+
+  const axis = createSvgElement("line", {
+    x1: padding.left,
+    y1: baselineY,
+    x2: width - padding.right,
+    y2: baselineY,
+    class: "more-svg-axis"
+  });
+
+  svg.append(area, line, axis);
+
+  points.forEach((point, pointIndex) => {
+    if (shouldRenderDots) {
+      const dot = createSvgElement("circle", {
+        cx: point.x,
+        cy: point.y,
+        r: 4,
+        class: "more-svg-dot"
+      });
+
+      const title = createSvgElement("title");
+      title.textContent = `${point.label}: ${point.value}`;
+      dot.append(title);
+      svg.append(dot);
+    }
+
+    const isTickPoint = pointIndex % labelStep === 0 || pointIndex === points.length - 1;
+    if (isTickPoint) {
+      const monthLabel = createSvgElement("text", {
+        x: point.x,
+        y: baselineY + 18,
+        "text-anchor": "end",
+        class: "more-svg-x-label"
+      });
+      monthLabel.textContent = formatActivityXAxisLabel(point.label, range);
+      monthLabel.setAttribute("transform", `rotate(-45 ${point.x} ${baselineY + 18})`);
+      svg.append(monthLabel);
+    }
+  });
+
+  wrap.append(svg);
+  container.append(wrap);
+}
+
+function renderStrengthRadarChart(container, strengthAverages) {
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+  const categories = ["Ausdauer", "Schnelligkeit", "Kraft", "Koordination", "Schwimmen"];
+  const maxLevel = 3;
+
+  const wrap = document.createElement("div");
+  wrap.className = "more-svg-chart-wrap more-svg-chart-wrap--side-legend";
+
+  const radarStack = document.createElement("div");
+  radarStack.className = "more-radar-stack";
+
+  const svg = createSvgElement("svg", {
+    class: "more-svg-chart more-svg-chart--radar",
+    viewBox: "0 0 320 250",
+    role: "img",
+    "aria-label": "Staerken als Radardiagramm"
+  });
+
+  const cx = 150;
+  const cy = 124;
+  const radius = 90;
+  const angleStep = 360 / categories.length;
+
+  for (let level = 1; level <= maxLevel; level += 1) {
+    const levelRadius = (radius * level) / maxLevel;
+    const points = categories.map((_, index) => {
+      const angle = index * angleStep;
+      const point = polarPoint(cx, cy, levelRadius, angle);
+      return `${point.x},${point.y}`;
+    });
+    const ring = createSvgElement("polygon", {
+      points: points.join(" "),
+      class: "more-svg-radar-ring"
+    });
+    svg.append(ring);
+  }
+
+  const valuePoints = [];
+  categories.forEach((categoryName, index) => {
+    const angle = index * angleStep;
+    const axisEnd = polarPoint(cx, cy, radius, angle);
+    const iconAnchor = polarPoint(cx, cy, radius + 18, angle);
+    const axis = createSvgElement("line", {
+      x1: cx,
+      y1: cy,
+      x2: axisEnd.x,
+      y2: axisEnd.y,
+      class: "more-svg-radar-axis"
+    });
+    svg.append(axis);
+
+    const value = Math.max(0, Math.min(maxLevel, Number(strengthAverages?.[categoryName]) || 0));
+    const valuePoint = polarPoint(cx, cy, (radius * value) / maxLevel, angle);
+    valuePoints.push({
+      categoryName,
+      value,
+      x: valuePoint.x,
+      y: valuePoint.y,
+      iconX: iconAnchor.x,
+      iconY: iconAnchor.y
+    });
+  });
+
+  const polygon = createSvgElement("polygon", {
+    points: valuePoints.map((point) => `${point.x},${point.y}`).join(" "),
+    class: "more-svg-radar-shape"
+  });
+  svg.append(polygon);
+
+  if (valuePoints.every((point) => point.value <= 0)) {
+    polygon.setAttribute("class", "more-svg-radar-shape more-svg-radar-shape--empty");
+  }
+
+  const accentCurve = createSvgElement("polygon", {
+    points: valuePoints
+      .map((point) => {
+        const paddedValue = Math.max(point.value, point.value > 0 ? 0.35 : 0.12);
+        const paddedPoint = polarPoint(cx, cy, (radius * paddedValue) / maxLevel, Math.atan2(point.y - cy, point.x - cx) * (180 / Math.PI) + 90);
+        return `${paddedPoint.x},${paddedPoint.y}`;
+      })
+      .join(" "),
+    class: "more-svg-radar-shape more-svg-radar-shape--soft"
+  });
+  svg.append(accentCurve);
+
+  valuePoints.forEach((point) => {
+    const dot = createSvgElement("circle", {
+      cx: point.x,
+      cy: point.y,
+      r: 4,
+      class: "more-svg-radar-dot"
+    });
+    const title = createSvgElement("title");
+    title.textContent = `${point.categoryName}: ${point.value.toFixed(2)}`;
+    dot.append(title);
+    svg.append(dot);
+    dot.dataset.radarCategoryKey = point.categoryName;
+
+    const pointChip = document.createElement("button");
+    pointChip.type = "button";
+    pointChip.className = "more-tooltip-target more-radar-point-chip";
+    pointChip.dataset.radarCategoryKey = point.categoryName;
+    pointChip.dataset.tooltip = `${point.categoryName}: ${point.value.toFixed(2)}`;
+    pointChip.title = `${point.categoryName}: ${point.value.toFixed(2)}`;
+    pointChip.style.left = `${(point.iconX / 320) * 100}%`;
+    pointChip.style.top = `${(point.iconY / 250) * 100}%`;
+    pointChip.append(createStatusIconElement(point.categoryName, "Gold", "status-icon--tiny"));
+    radarStack.append(pointChip);
+  });
+
+  const legend = document.createElement("div");
+  legend.className = "more-svg-legend";
+  for (const point of valuePoints) {
+    const item = document.createElement("div");
+    item.className = "more-svg-legend-item";
+    item.dataset.radarCategoryKey = point.categoryName;
+    item.append(createCategoryLabelWithIcon(point.categoryName));
+
+    const value = document.createElement("strong");
+    value.textContent = point.value.toFixed(2);
+    item.append(value);
+    legend.append(item);
+  }
+
+  const radarKeyToElements = new Map();
+  const registerRadarElement = (element, key) => {
+    if (!radarKeyToElements.has(key)) {
+      radarKeyToElements.set(key, []);
+    }
+    radarKeyToElements.get(key).push(element);
+  };
+
+  for (const element of Array.from(svg.querySelectorAll("[data-radar-category-key]"))) {
+    registerRadarElement(element, element.dataset.radarCategoryKey);
+  }
+  for (const element of Array.from(radarStack.querySelectorAll("[data-radar-category-key]"))) {
+    registerRadarElement(element, element.dataset.radarCategoryKey);
+  }
+  for (const element of Array.from(legend.querySelectorAll("[data-radar-category-key]"))) {
+    registerRadarElement(element, element.dataset.radarCategoryKey);
+  }
+
+  const toggleRadarHover = (categoryName, active) => {
+    const elements = radarKeyToElements.get(categoryName) || [];
+    for (const element of elements) {
+      element.classList.toggle("is-hovered", active);
+    }
+  };
+
+  radarKeyToElements.forEach((elements, categoryName) => {
+    for (const element of elements) {
+      element.addEventListener("mouseenter", () => toggleRadarHover(categoryName, true));
+      element.addEventListener("mouseleave", () => toggleRadarHover(categoryName, false));
+      element.addEventListener("focus", () => toggleRadarHover(categoryName, true));
+      element.addEventListener("blur", () => toggleRadarHover(categoryName, false));
+    }
+  });
+
+  radarStack.prepend(svg);
+  wrap.append(radarStack, legend);
+  container.append(wrap);
+}
+
+function renderMoreActivityRangeState() {
+  if (!moreActivityRangeChips) {
+    return;
+  }
+
+  const activeRange = normalizeMoreActivityRange(state.moreInsightsActivityRange);
+  for (const chip of Array.from(moreActivityRangeChips.querySelectorAll("[data-activity-range]"))) {
+    const chipRange = normalizeMoreActivityRange(chip.dataset.activityRange);
+    const isActive = chipRange === activeRange;
+    chip.classList.toggle("is-active", isActive);
+    chip.setAttribute("aria-pressed", isActive ? "true" : "false");
+  }
+}
+
+function renderMoreInsights() {
+  renderMoreInsightsScopeOptions();
+  renderMoreActivityRangeState();
+  const scopedAthletes = getAthletesForMoreInsightsScope();
+  const stats = collectMoreInsightsStats(scopedAthletes);
+  const activityStats = collectMoreInsightsActivity(scopedAthletes);
+  const scope = normalizeText(state.moreInsightsScope) || "all";
+  const isSingleAthleteScope = scope.startsWith("athlete:");
+
+  renderResultsSummaryStats(scopedAthletes);
+  renderMissingCategoryChart(moreMissingChart, stats.categoryAchievementSummary, stats.scopedAthleteCount, stats.overallAchievementSummary);
+  renderAgeDonutChart(moreAgeChart, stats.ageBuckets, { isSingleAthleteScope });
+  renderActivityAreaChart(moreActivityChart, activityStats.activity, activityStats.range);
+  renderStrengthRadarChart(moreStrengthChart, stats.strengthAverages);
+}
+
+function jumpToAthleteCategory(categoryName) {
+  const normalizedCategory = normalizeText(categoryName);
+  if (!normalizedCategory || !disciplineGroups) {
+    return;
+  }
+
+  const targetSection = Array.from(disciplineGroups.querySelectorAll(".discipline-category")).find((section) => {
+    return normalizeText(section.dataset.category) === normalizedCategory;
+  });
+
+  if (!targetSection) {
+    return;
+  }
+
+  targetSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  targetSection.classList.add("discipline-category--jump");
+  setTimeout(() => {
+    targetSection.classList.remove("discipline-category--jump");
+  }, 900);
+
+  const firstDisciplineButton = targetSection.querySelector(".discipline-btn");
+  if (firstDisciplineButton instanceof HTMLElement) {
+    firstDisciplineButton.focus({ preventScroll: true });
   }
 }
 
@@ -1801,6 +3842,10 @@ function getImportTypeDisplayLabel(importType) {
     return "Vollimport (JSON)";
   }
 
+  if (importType === "applePerformance") {
+    return "Sportabzeichen App iOS/Apple CSV";
+  }
+
   if (importType === "digitalPerformance") {
     return "Sportabzeichen-Digital CSV mit Leistungen";
   }
@@ -1813,6 +3858,10 @@ function getImportTypeDisplayLabel(importType) {
     return "Einfache CSV";
   }
 
+  if (importType === "mixed") {
+    return "Gemischte Dateien";
+  }
+
   return "Unbekannt";
 }
 
@@ -1820,6 +3869,90 @@ function updateImportDetectedState(importType, fileName = "", message = "") {
   state.importDetectedType = normalizeText(importType);
   state.importDetectedFileName = normalizeText(fileName);
   state.importDetectedMessage = normalizeText(message);
+}
+
+function formatFileSize(sizeBytes) {
+  const size = Number(sizeBytes);
+  if (!Number.isFinite(size) || size < 0) {
+    return "-";
+  }
+
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toLocaleString("de-DE", { maximumFractionDigits: 1 })} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toLocaleString("de-DE", { maximumFractionDigits: 1 })} MB`;
+}
+
+function formatDateForImportPreview(dateValue) {
+  if (!dateValue) {
+    return "-";
+  }
+
+  const parsed = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(parsed);
+}
+
+function formatDateOnlyForImportPreview(dateValue) {
+  const parsed = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "short"
+  }).format(parsed);
+}
+
+function parseAppleCsvDate(rawValue) {
+  const value = normalizeText(rawValue);
+  if (!value) {
+    return "";
+  }
+
+  const match = value.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!match) {
+    return "";
+  }
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const iso = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return isFullBirthDateValue(iso) ? iso : "";
+}
+
+function collectImportDateRange(dateValues = []) {
+  const timestamps = dateValues
+    .map((entry) => normalizeText(entry))
+    .filter(Boolean)
+    .map((entry) => new Date(entry))
+    .filter((entry) => !Number.isNaN(entry.getTime()))
+    .map((entry) => entry.getTime())
+    .sort((left, right) => left - right);
+
+  if (timestamps.length === 0) {
+    return {
+      first: "",
+      last: ""
+    };
+  }
+
+  return {
+    first: new Date(timestamps[0]).toISOString(),
+    last: new Date(timestamps[timestamps.length - 1]).toISOString()
+  };
 }
 
 function renderImportGroupSelectOptions() {
@@ -1848,6 +3981,8 @@ function renderImportGroupSelectOptions() {
 }
 
 function renderImportControlsState() {
+  const previewItems = Array.isArray(state.importPreviewItems) ? state.importPreviewItems : [];
+
   if (importDetectedFormat) {
     const hasFile = !!importFileInput?.files?.length;
     const typeLabel = getImportTypeDisplayLabel(state.importDetectedType);
@@ -1859,22 +3994,268 @@ function renderImportControlsState() {
     importDetectedFormat.classList.toggle("is-warning", !!state.importDetectedType && state.importDetectedType === "unknown");
   }
 
-  const isSimpleImport = state.importDetectedType === "simple";
+  const hasSelectedFiles = !!importFileInput?.files?.length;
+  const canAssignToGroup = hasSelectedFiles;
   if (importSimpleGroupControls) {
-    importSimpleGroupControls.hidden = !isSimpleImport;
+    importSimpleGroupControls.hidden = !canAssignToGroup;
   }
 
-  if (!isSimpleImport && importCreateGroupCheckbox) {
+  if (!canAssignToGroup && importCreateGroupCheckbox) {
     importCreateGroupCheckbox.checked = false;
   }
 
   renderImportGroupSelectOptions();
   updateImportGroupInputState();
 
+  if (importPreviewWrap) {
+    importPreviewWrap.hidden = previewItems.length === 0;
+  }
+
+  if (importPreviewList) {
+    importPreviewList.innerHTML = "";
+    for (const item of previewItems) {
+      const card = document.createElement("article");
+      card.className = "import-preview-card";
+
+      const heading = document.createElement("div");
+      heading.className = "import-preview-card-head";
+
+      const title = document.createElement("h4");
+      title.className = "import-preview-card-title";
+      title.textContent = item.fileName || "Datei";
+
+      const type = document.createElement("span");
+      type.className = `import-preview-type${item.type === "unknown" ? " is-warning" : ""}`;
+      type.textContent = getImportTypeDisplayLabel(item.type);
+
+      heading.append(title, type);
+
+      const meta = document.createElement("div");
+      meta.className = "import-preview-meta";
+      const metaItems = [
+        `Athleten: ${Number(item.athleteCount || 0).toLocaleString("de-DE")}`,
+        `Eintraege: ${Number(item.entryCount || 0).toLocaleString("de-DE")}`,
+        `Dateigroesse: ${formatFileSize(item.fileSizeBytes)}`,
+        `Geaendert: ${formatDateForImportPreview(item.lastModified)}`
+      ];
+
+      if (item.firstDataDate || item.lastDataDate) {
+        metaItems.push(`Daten: ${formatDateOnlyForImportPreview(item.firstDataDate)} bis ${formatDateOnlyForImportPreview(item.lastDataDate)}`);
+      }
+
+      for (const text of metaItems) {
+        const chip = document.createElement("span");
+        chip.className = "import-preview-chip";
+        chip.textContent = text;
+        meta.append(chip);
+      }
+
+      const message = document.createElement("p");
+      message.className = "import-preview-message";
+      message.textContent = item.message || "";
+
+      card.append(heading, meta, message);
+      importPreviewList.append(card);
+    }
+  }
+
   if (importRunButton) {
     const hasFile = !!importFileInput?.files?.length;
-    importRunButton.disabled = !hasFile || state.importDetectedType === "unknown";
+    const hasImportablePreview = previewItems.some((item) => item.type && item.type !== "unknown");
+    importRunButton.disabled = !hasFile || !hasImportablePreview;
   }
+}
+
+function collectPerformanceEntryCount(athletes = []) {
+  return (Array.isArray(athletes) ? athletes : []).reduce((sum, athlete) => sum + getAthletePerformanceEntryCount(athlete), 0);
+}
+
+function createAppleCsvRecordFromRow(row, headerMap) {
+  return {
+    externalId: getCsvValueByAliasesStrict(row, headerMap, ["externe id"]),
+    lastName: getCsvValueByAliasesStrict(row, headerMap, ["name"]),
+    firstName: getCsvValueByAliasesStrict(row, headerMap, ["vorname"]),
+    gender: getCsvValueByAliasesStrict(row, headerMap, ["geschlecht"]),
+    birthYear: getCsvValueByAliasesStrict(row, headerMap, ["geburtsjahr"]),
+    birthDate: getCsvValueByAliasesStrict(row, headerMap, ["geburtstag"]),
+    exercise: getCsvValueByAliasesStrict(row, headerMap, ["ubung", "übung"]),
+    category: getCsvValueByAliasesStrict(row, headerMap, ["kategorie"]),
+    date: getCsvValueByAliasesStrict(row, headerMap, ["datum"]),
+    result: getCsvValueByAliasesStrict(row, headerMap, ["ergebnis"]),
+    points: getCsvValueByAliasesStrict(row, headerMap, ["punkte"]),
+    dbs: getCsvValueByAliasesStrict(row, headerMap, ["dbs"])
+  };
+}
+
+function createAppleAthleteDraftFromCsvRecord(csvRecord) {
+  const firstName = normalizeText(csvRecord.firstName);
+  const lastName = normalizeText(csvRecord.lastName);
+  const genderRaw = normalizeText(csvRecord.gender);
+  const birthDate = parseAppleCsvDate(csvRecord.birthDate) || normalizeYearValue(csvRecord.birthYear);
+
+  if (!firstName || !lastName || !genderRaw || !birthDate) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  return normalizeAthleteRecord({
+    id: createId(),
+    firstName,
+    lastName,
+    gender: normalizeImportedGender(genderRaw),
+    birthDate,
+    dsaId: normalizeText(csvRecord.externalId),
+    country: "Deutschland",
+    performances: {},
+    createdAt: now,
+    updatedAt: now
+  });
+}
+
+function analyzeImportText(fileName, fileSizeBytes, lastModified, fileContent) {
+  const trimmedContent = String(fileContent || "").trim();
+  if (!trimmedContent) {
+    return {
+      fileName,
+      fileSizeBytes,
+      lastModified,
+      type: "unknown",
+      athleteCount: 0,
+      entryCount: 0,
+      firstDataDate: "",
+      lastDataDate: "",
+      message: "Datei ist leer."
+    };
+  }
+
+  if (/^[\[{]/.test(trimmedContent)) {
+    try {
+      const payload = JSON.parse(trimmedContent);
+      const parsedPayload = parseFullImportPayload(payload);
+      const athletes = Array.isArray(parsedPayload.athletes) ? parsedPayload.athletes.map((entry) => normalizeAthleteRecord(entry)) : [];
+      const dateRange = collectImportDateRange(athletes.flatMap((athlete) => {
+        const dates = [];
+        const performances = athlete?.performances;
+        if (performances && typeof performances === "object") {
+          for (const entries of Object.values(performances)) {
+            for (const entry of Array.isArray(entries) ? entries : []) {
+              dates.push(normalizeText(entry?.measuredAt));
+            }
+          }
+        }
+        return dates;
+      }));
+
+      return {
+        fileName,
+        fileSizeBytes,
+        lastModified,
+        type: "full",
+        athleteCount: athletes.length,
+        entryCount: collectPerformanceEntryCount(athletes),
+        firstDataDate: dateRange.first,
+        lastDataDate: dateRange.last,
+        message: `Vollimport mit ${athletes.length} Athleten und ${Array.isArray(parsedPayload.groups) ? parsedPayload.groups.length : 0} Gruppen.`
+      };
+    } catch (_error) {
+      // Continue with CSV analysis.
+    }
+  }
+
+  const parsedCsv = parseCsvText(trimmedContent);
+  if (!Array.isArray(parsedCsv.rows) || parsedCsv.rows.length === 0) {
+    return {
+      fileName,
+      fileSizeBytes,
+      lastModified,
+      type: "unknown",
+      athleteCount: 0,
+      entryCount: 0,
+      firstDataDate: "",
+      lastDataDate: "",
+      message: "Datei enthaelt keine importierbaren Daten."
+    };
+  }
+
+  const headerIndex = findCsvHeaderRowIndex(parsedCsv.rows);
+  if (headerIndex < 0) {
+    return {
+      fileName,
+      fileSizeBytes,
+      lastModified,
+      type: "unknown",
+      athleteCount: 0,
+      entryCount: 0,
+      firstDataDate: "",
+      lastDataDate: "",
+      message: "CSV-Format nicht erkannt (keine passende Kopfzeile)."
+    };
+  }
+
+  const headerMap = createCsvHeaderIndexMap(parsedCsv.rows[headerIndex]);
+  const detectedType = detectCsvImportType(headerMap);
+  if (detectedType === "unknown") {
+    return {
+      fileName,
+      fileSizeBytes,
+      lastModified,
+      type: "unknown",
+      athleteCount: 0,
+      entryCount: 0,
+      firstDataDate: "",
+      lastDataDate: "",
+      message: "CSV-Format wird nicht unterstuetzt."
+    };
+  }
+
+  const athleteKeys = new Set();
+  const contentDates = [];
+  let entryCount = 0;
+
+  for (let rowIndex = headerIndex + 1; rowIndex < parsedCsv.rows.length; rowIndex += 1) {
+    const row = parsedCsv.rows[rowIndex];
+    if (isCsvRowEmpty(row)) {
+      continue;
+    }
+
+    if (detectedType === "applePerformance") {
+      const record = createAppleCsvRecordFromRow(row, headerMap);
+      const athleteKey = `${normalizeText(record.lastName).toLowerCase()}|${normalizeText(record.firstName).toLowerCase()}|${normalizeText(record.birthDate || record.birthYear)}|${normalizeText(record.gender).toUpperCase()}`;
+      if (normalizeText(record.lastName) && normalizeText(record.firstName)) {
+        athleteKeys.add(athleteKey);
+      }
+      if (normalizeText(record.exercise) && normalizeText(record.result)) {
+        entryCount += 1;
+      }
+      const isoDate = parseAppleCsvDate(record.date);
+      if (isoDate) {
+        contentDates.push(isoDate);
+      }
+      continue;
+    }
+
+    const csvRecord = createCsvRecordFromRow(row, headerMap);
+    const athleteDraft = createAthleteDraftFromCsvRecord(csvRecord, detectedType);
+    if (!athleteDraft) {
+      continue;
+    }
+
+    athleteKeys.add(`${athleteDraft.lastName.toLowerCase()}|${athleteDraft.firstName.toLowerCase()}|${athleteDraft.birthDate}|${athleteDraft.gender}`);
+    entryCount += 1;
+  }
+
+  const dateRange = collectImportDateRange(contentDates);
+  return {
+    fileName,
+    fileSizeBytes,
+    lastModified,
+    type: detectedType,
+    athleteCount: athleteKeys.size,
+    entryCount,
+    firstDataDate: dateRange.first,
+    lastDataDate: dateRange.last,
+    message: `Erkannt: ${getImportTypeDisplayLabel(detectedType)}.`
+  };
 }
 
 function detectImportTypeFromText(fileContent) {
@@ -1941,21 +4322,301 @@ function detectImportTypeFromText(fileContent) {
 
 async function previewSelectedImportFile() {
   if (!importFileInput || !importFileInput.files || importFileInput.files.length === 0) {
+    state.importPreviewItems = [];
+    state.importHasSimpleFile = false;
     updateImportDetectedState("", "", "Noch keine Datei ausgewaehlt.");
     renderImportControlsState();
     return;
   }
 
-  const file = importFileInput.files[0];
-  try {
-    const content = await file.text();
-    const detection = detectImportTypeFromText(content);
-    updateImportDetectedState(detection.type, file.name, detection.message);
-  } catch (_error) {
-    updateImportDetectedState("unknown", file.name, "Datei konnte nicht gelesen werden.");
+  const files = Array.from(importFileInput.files);
+  const previewItems = [];
+
+  for (const file of files) {
+    try {
+      const content = await file.text();
+      previewItems.push(analyzeImportText(file.name, file.size, file.lastModified, content));
+    } catch (_error) {
+      previewItems.push({
+        fileName: file.name,
+        fileSizeBytes: file.size,
+        lastModified: file.lastModified,
+        type: "unknown",
+        athleteCount: 0,
+        entryCount: 0,
+        firstDataDate: "",
+        lastDataDate: "",
+        message: "Datei konnte nicht gelesen werden."
+      });
+    }
   }
 
+  state.importPreviewItems = previewItems;
+  state.importHasSimpleFile = previewItems.some((item) => item.type === "simple");
+
+  const detectedTypes = Array.from(new Set(previewItems.map((item) => normalizeText(item.type)).filter(Boolean)));
+  const importableTypes = detectedTypes.filter((type) => type && type !== "unknown");
+  const aggregateType = importableTypes.length === 0
+    ? "unknown"
+    : (importableTypes.length === 1 ? importableTypes[0] : "mixed");
+  const validFileCount = previewItems.filter((item) => item.type && item.type !== "unknown").length;
+
+  updateImportDetectedState(
+    aggregateType,
+    files.length === 1 ? files[0].name : `${files.length} Dateien`,
+    `${files.length} Datei${files.length === 1 ? "" : "en"} gewaehlt, ${validFileCount} importierbar.`
+  );
+
   renderImportControlsState();
+}
+
+function getCustomDisciplineInputTypeLabel(inputType) {
+  const normalizedInputType = normalizeCustomDisciplineInputType(inputType);
+  if (normalizedInputType === "level") {
+    return "Stufe";
+  }
+  if (normalizedInputType === "count") {
+    return "Anzahl";
+  }
+  if (normalizedInputType === "time_seconds") {
+    return "Zeit s";
+  }
+  if (normalizedInputType === "time_mm_ss") {
+    return "Zeit mm:ss";
+  }
+
+  return "Wert";
+}
+
+function getCustomDisciplineBetterLabel(better) {
+  return normalizeText(better) === "lower" ? "Weniger = besser" : "Mehr = besser";
+}
+
+function resetCustomDisciplineForm() {
+  customDisciplineEditingId = "";
+  if (customDisciplineNameInput) {
+    customDisciplineNameInput.value = "";
+  }
+  if (customDisciplineInputTypeSelect) {
+    customDisciplineInputTypeSelect.value = "level";
+  }
+  if (customDisciplineBetterSelect) {
+    customDisciplineBetterSelect.value = "higher";
+  }
+  if (customDisciplineExecutionsInput) {
+    customDisciplineExecutionsInput.value = "";
+  }
+  if (customDisciplineDescriptionInput) {
+    customDisciplineDescriptionInput.value = "";
+  }
+  if (customDisciplineSaveButton) {
+    customDisciplineSaveButton.textContent = "Speichern";
+  }
+}
+
+function fillCustomDisciplineForm(customDiscipline) {
+  if (!customDiscipline) {
+    resetCustomDisciplineForm();
+    return;
+  }
+
+  customDisciplineEditingId = customDiscipline.id;
+  if (customDisciplineNameInput) {
+    customDisciplineNameInput.value = customDiscipline.name;
+  }
+  if (customDisciplineInputTypeSelect) {
+    customDisciplineInputTypeSelect.value = normalizeCustomDisciplineInputType(customDiscipline.inputType);
+  }
+  if (customDisciplineBetterSelect) {
+    customDisciplineBetterSelect.value = normalizeCustomDisciplineBetter(customDiscipline.better, customDiscipline.inputType);
+  }
+  if (customDisciplineExecutionsInput) {
+    customDisciplineExecutionsInput.value = Array.isArray(customDiscipline.executions) ? customDiscipline.executions.join("\n") : "";
+  }
+  if (customDisciplineDescriptionInput) {
+    customDisciplineDescriptionInput.value = normalizeText(customDiscipline.description);
+  }
+  if (customDisciplineSaveButton) {
+    customDisciplineSaveButton.textContent = "Aenderungen speichern";
+  }
+}
+
+function renderCustomDisciplineManager() {
+  if (!customDisciplineList) {
+    return;
+  }
+
+  customDisciplineList.innerHTML = "";
+
+  if (!Array.isArray(state.customDisciplines) || state.customDisciplines.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "group-empty-note";
+    empty.textContent = "Noch keine eigene Disziplin gespeichert.";
+    customDisciplineList.append(empty);
+    return;
+  }
+
+  const sorted = state.customDisciplines
+    .slice()
+    .sort((left, right) => normalizeText(left.name).localeCompare(normalizeText(right.name), "de"));
+
+  for (const customDiscipline of sorted) {
+    const item = document.createElement("article");
+    item.className = "custom-discipline-item";
+
+    const head = document.createElement("div");
+    head.className = "custom-discipline-item-head";
+
+    const titleWrap = document.createElement("div");
+    const title = document.createElement("h4");
+    title.textContent = customDiscipline.name;
+
+    const executionText = Array.isArray(customDiscipline.executions) && customDiscipline.executions.length > 0
+      ? `${customDiscipline.executions.length} Ausfuehrung${customDiscipline.executions.length === 1 ? "" : "en"}`
+      : "1 Ausfuehrung";
+
+    const tags = document.createElement("div");
+    tags.className = "custom-discipline-item-tags";
+
+    const typeTag = document.createElement("span");
+    typeTag.className = "custom-discipline-tag";
+    typeTag.textContent = getCustomDisciplineInputTypeLabel(customDiscipline.inputType);
+
+    const betterTag = document.createElement("span");
+    betterTag.className = "custom-discipline-tag";
+    betterTag.textContent = getCustomDisciplineBetterLabel(customDiscipline.better);
+
+    const executionTag = document.createElement("span");
+    executionTag.className = "custom-discipline-tag";
+    executionTag.textContent = executionText;
+
+    tags.append(typeTag, betterTag, executionTag);
+    titleWrap.append(title, tags);
+
+    const actions = document.createElement("div");
+    actions.className = "custom-discipline-item-actions";
+
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "ghost-btn";
+    editButton.dataset.customAction = "edit";
+    editButton.dataset.customId = customDiscipline.id;
+    editButton.textContent = "Bearbeiten";
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "danger-btn";
+    deleteButton.dataset.customAction = "delete";
+    deleteButton.dataset.customId = customDiscipline.id;
+    deleteButton.textContent = "Loeschen";
+
+    actions.append(editButton, deleteButton);
+    head.append(titleWrap, actions);
+    item.append(head);
+
+    const description = normalizeText(customDiscipline.description);
+    if (description) {
+      const note = document.createElement("p");
+      note.className = "form-subnote";
+      note.textContent = description;
+      item.append(note);
+    }
+
+    if (Array.isArray(customDiscipline.executions) && customDiscipline.executions.length > 0) {
+      const executionLine = document.createElement("p");
+      executionLine.className = "custom-discipline-item-meta";
+      executionLine.textContent = `Ausfuehrungen: ${customDiscipline.executions.join(" | ")}`;
+      item.append(executionLine);
+    }
+
+    customDisciplineList.append(item);
+  }
+}
+
+function saveCustomDisciplineFromForm() {
+  if (!customDisciplineNameInput || !customDisciplineInputTypeSelect || !customDisciplineBetterSelect) {
+    return;
+  }
+
+  const draft = normalizeCustomDisciplineRecord({
+    id: customDisciplineEditingId || createId(),
+    name: customDisciplineNameInput.value,
+    inputType: customDisciplineInputTypeSelect.value,
+    better: customDisciplineBetterSelect.value,
+    executions: customDisciplineExecutionsInput ? customDisciplineExecutionsInput.value : "",
+    description: customDisciplineDescriptionInput ? customDisciplineDescriptionInput.value : "",
+    createdAt: customDisciplineEditingId ? getCustomDisciplineById(customDisciplineEditingId)?.createdAt : undefined,
+    updatedAt: new Date().toISOString()
+  });
+
+  if (!draft) {
+    showToast("Bitte einen gueltigen Namen fuer die Disziplin eingeben.");
+    return;
+  }
+
+  const duplicate = state.customDisciplines.find((entry) => {
+    if (entry.id === draft.id) {
+      return false;
+    }
+
+    return normalizeText(entry.name).toLowerCase() === normalizeText(draft.name).toLowerCase();
+  });
+  if (duplicate) {
+    showToast("Eine eigene Disziplin mit diesem Namen existiert bereits.");
+    return;
+  }
+
+  const existingIndex = state.customDisciplines.findIndex((entry) => entry.id === draft.id);
+  if (existingIndex >= 0) {
+    state.customDisciplines[existingIndex] = {
+      ...state.customDisciplines[existingIndex],
+      ...draft,
+      updatedAt: new Date().toISOString()
+    };
+  } else {
+    state.customDisciplines.push(draft);
+  }
+
+  state.customDisciplines.sort((left, right) => normalizeText(left.name).localeCompare(normalizeText(right.name), "de"));
+  saveCustomDisciplines();
+  resetCustomDisciplineForm();
+  refreshAthleteViews();
+  showToast(existingIndex >= 0 ? "Eigene Disziplin aktualisiert." : "Eigene Disziplin gespeichert.");
+}
+
+function deleteCustomDiscipline(customDisciplineId) {
+  const existing = getCustomDisciplineById(customDisciplineId);
+  if (!existing) {
+    return;
+  }
+
+  const confirmed = window.confirm(`Eigene Disziplin "${existing.name}" wirklich loeschen?`);
+  if (!confirmed) {
+    return;
+  }
+
+  const targetPrefix = `custom:${existing.id}::`;
+  for (const athlete of state.athletes) {
+    if (!athlete.performances || typeof athlete.performances !== "object") {
+      continue;
+    }
+
+    for (const performanceKey of Object.keys(athlete.performances)) {
+      if (normalizeText(performanceKey).startsWith(targetPrefix)) {
+        delete athlete.performances[performanceKey];
+      }
+    }
+  }
+
+  state.customDisciplines = state.customDisciplines.filter((entry) => entry.id !== existing.id);
+  if (customDisciplineEditingId === existing.id) {
+    resetCustomDisciplineForm();
+  }
+
+  saveCustomDisciplines();
+  saveAthletes();
+  refreshAthleteViews();
+  showToast("Eigene Disziplin geloescht.");
 }
 
 function renderResultsToolsState() {
@@ -1979,6 +4640,1596 @@ function renderResultsToolsState() {
   renderExportDigitalAthleteSelection();
   updateDigitalExportScopeVisibility();
   renderImportControlsState();
+  renderMorePageNavigationState();
+  renderMoreInsights();
+  renderCustomDisciplineManager();
+  renderCertificateTools();
+  renderMailerControls();
+  renderMergeTools();
+}
+
+function normalizeNameToken(value) {
+  return normalizeCsvToken(value).replace(/^(von|van|der|den|de)/, "");
+}
+
+function buildAthleteIdentityKey(athlete) {
+  if (!athlete) {
+    return "";
+  }
+
+  return [
+    normalizeNameToken(athlete.lastName),
+    normalizeNameToken(athlete.firstName),
+    normalizeText(athlete.birthDate),
+    normalizeText(athlete.gender).toUpperCase()
+  ].join("|");
+}
+
+function getAthleteCompletenessScore(athlete) {
+  if (!athlete) {
+    return 0;
+  }
+
+  let score = 0;
+  const fullBirthDate = isFullBirthDateValue(athlete.birthDate);
+  if (normalizeText(athlete.firstName)) score += 2;
+  if (normalizeText(athlete.lastName)) score += 2;
+  if (normalizeText(athlete.dsaId)) score += 4;
+  if (fullBirthDate) score += 4;
+  else if (extractBirthYear(athlete.birthDate)) score += 2;
+  if (normalizeText(athlete.email)) score += 2;
+  if (normalizeText(athlete.zip)) score += 1;
+  if (normalizeText(athlete.city)) score += 1;
+  score += getAthletePerformanceEntryCount(athlete) * 0.25;
+  score += getGroupIdsForAthlete(athlete.id).length * 0.5;
+  return score;
+}
+
+function getAthleteMergeFieldDefinitions() {
+  return [
+    { key: "firstName", label: "Vorname" },
+    { key: "lastName", label: "Nachname" },
+    { key: "gender", label: "Geschlecht" },
+    { key: "birthDate", label: "Geburtsdatum" },
+    { key: "dsaId", label: "DSA-ID" },
+    { key: "zip", label: "PLZ" },
+    { key: "city", label: "Ort" },
+    { key: "country", label: "Land" },
+    { key: "email", label: "Primaere E-Mail" },
+    { key: "emergencyEmails", label: "Kontakt-E-Mails", isArray: true },
+    { key: "emergencyPhones", label: "Kontakt-Telefone", isArray: true },
+    { key: "swimProofYear", label: "Schwimmnachweis Jahr" },
+    { key: "swimProofSelection", label: "Schwimmnachweis Auswahl" },
+    { key: "swimProofPerformance", label: "Schwimmnachweis Leistung" },
+    { key: "associationBadgeId", label: "Verbandsabzeichen" },
+    { key: "associationBadgeLevel", label: "Verbandsabzeichen Stufe" },
+    { key: "performances", label: "Leistungen", isSpecial: true }
+  ];
+}
+
+function getGroupMergeFieldDefinitions() {
+  return [
+    { key: "name", label: "Gruppenname" },
+    { key: "athleteIds", label: "Mitglieder", isArray: true },
+    { key: "trainingSlots", label: "Trainingszeiten", isSpecial: true }
+  ];
+}
+
+function getAthleteSummaryLabel(athlete) {
+  if (!athlete) {
+    return "-";
+  }
+
+  const parts = [athleteDisplayName(athlete) || "Unbenannt"];
+  const birth = normalizeText(athlete.birthDate);
+  if (birth) parts.push(birth);
+  if (normalizeText(athlete.dsaId)) parts.push(`DSA ${athlete.dsaId}`);
+  return parts.join(" | ");
+}
+
+function getGroupSummaryLabel(group) {
+  if (!group) {
+    return "-";
+  }
+
+  return `${normalizeText(group.name) || "Unbenannt"} | ${Array.isArray(group.athleteIds) ? group.athleteIds.length : 0} Athleten`;
+}
+
+function choosePreferredAthleteMergeTarget(left, right) {
+  const leftScore = getAthleteCompletenessScore(left);
+  const rightScore = getAthleteCompletenessScore(right);
+  if (leftScore !== rightScore) {
+    return leftScore >= rightScore ? { target: left, source: right } : { target: right, source: left };
+  }
+
+  return athleteDisplayName(left).localeCompare(athleteDisplayName(right), "de") <= 0
+    ? { target: left, source: right }
+    : { target: right, source: left };
+}
+
+function buildAthleteDuplicateSuggestions() {
+  const suggestions = [];
+  for (let index = 0; index < state.athletes.length; index += 1) {
+    const left = state.athletes[index];
+    for (let inner = index + 1; inner < state.athletes.length; inner += 1) {
+      const right = state.athletes[inner];
+      let score = 0;
+      const reasons = [];
+
+      const leftDsa = normalizeText(left.dsaId).toLowerCase();
+      const rightDsa = normalizeText(right.dsaId).toLowerCase();
+      if (leftDsa && rightDsa && leftDsa === rightDsa) {
+        score += 10;
+        reasons.push("gleiche DSA-ID");
+      }
+
+      const leftBirth = normalizeText(left.birthDate);
+      const rightBirth = normalizeText(right.birthDate);
+      if (leftBirth && rightBirth && leftBirth === rightBirth) {
+        score += 5;
+        reasons.push("gleiches Geburtsdatum");
+      } else {
+        const leftYear = extractBirthYear(left.birthDate);
+        const rightYear = extractBirthYear(right.birthDate);
+        if (leftYear && rightYear && leftYear === rightYear) {
+          score += 2;
+          reasons.push("gleiches Geburtsjahr");
+        }
+      }
+
+      const leftGender = normalizeText(left.gender).toUpperCase();
+      const rightGender = normalizeText(right.gender).toUpperCase();
+      if (leftGender && rightGender && leftGender === rightGender) {
+        score += 1;
+      }
+
+      const leftLast = normalizeNameToken(left.lastName);
+      const rightLast = normalizeNameToken(right.lastName);
+      const leftFirst = normalizeNameToken(left.firstName);
+      const rightFirst = normalizeNameToken(right.firstName);
+      if (leftLast && rightLast && leftLast === rightLast) {
+        score += 4;
+        reasons.push("gleicher Nachname");
+      }
+      if (leftFirst && rightFirst && (leftFirst === rightFirst || leftFirst.includes(rightFirst) || rightFirst.includes(leftFirst))) {
+        score += 4;
+        reasons.push(leftFirst === rightFirst ? "gleicher Vorname" : "Vorname enthaelt Zweitnamen/Teilnamen");
+      }
+
+      const leftMail = normalizeText(left.email).toLowerCase();
+      const rightMail = normalizeText(right.email).toLowerCase();
+      if (leftMail && rightMail && leftMail === rightMail) {
+        score += 4;
+        reasons.push("gleiche E-Mail");
+      }
+
+      const leftPhones = new Set(normalizeEmergencyPhoneList(left.emergencyPhones).map((entry) => entry.replace(/[^+\d]/g, "")));
+      const rightPhones = normalizeEmergencyPhoneList(right.emergencyPhones).map((entry) => entry.replace(/[^+\d]/g, ""));
+      if (rightPhones.some((entry) => entry && leftPhones.has(entry))) {
+        score += 3;
+        reasons.push("gleiche Kontakt-Telefonnummer");
+      }
+
+      const sharedGroups = getGroupIdsForAthlete(left.id).filter((groupId) => getGroupIdsForAthlete(right.id).includes(groupId));
+      if (sharedGroups.length > 0) {
+        score += 1;
+        reasons.push("gemeinsame Gruppe");
+      }
+
+      if (score < 7) {
+        continue;
+      }
+
+      const pair = choosePreferredAthleteMergeTarget(left, right);
+      suggestions.push({
+        type: "athlete",
+        score,
+        reasons,
+        targetId: pair.target.id,
+        sourceId: pair.source.id
+      });
+    }
+  }
+
+  return suggestions.sort((left, right) => right.score - left.score || left.reasons.length - right.reasons.length);
+}
+
+function normalizeGroupNameForDuplicateCheck(value) {
+  return normalizeCsvToken(value).replace(/gruppe/g, "");
+}
+
+function buildGroupDuplicateSuggestions() {
+  const suggestions = [];
+  for (let index = 0; index < state.groups.length; index += 1) {
+    const left = state.groups[index];
+    for (let inner = index + 1; inner < state.groups.length; inner += 1) {
+      const right = state.groups[inner];
+      let score = 0;
+      const reasons = [];
+      const leftName = normalizeGroupNameForDuplicateCheck(left.name);
+      const rightName = normalizeGroupNameForDuplicateCheck(right.name);
+      if (leftName && rightName && leftName === rightName) {
+        score += 8;
+        reasons.push("gleicher Gruppenname");
+      } else if (leftName && rightName && (leftName.includes(rightName) || rightName.includes(leftName))) {
+        score += 4;
+        reasons.push("aehnlicher Gruppenname");
+      }
+
+      const leftAthleteIds = Array.isArray(left.athleteIds) ? left.athleteIds : [];
+      const rightAthleteIds = Array.isArray(right.athleteIds) ? right.athleteIds : [];
+      const sharedMembers = leftAthleteIds.filter((athleteId) => rightAthleteIds.includes(athleteId));
+      if (sharedMembers.length > 0) {
+        score += Math.min(5, sharedMembers.length + 1);
+        reasons.push(`${sharedMembers.length} gleiche Mitglieder`);
+      }
+
+      if (score < 6) {
+        continue;
+      }
+
+      const target = leftAthleteIds.length >= rightAthleteIds.length ? left : right;
+      const source = target.id === left.id ? right : left;
+      suggestions.push({
+        type: "group",
+        score,
+        reasons,
+        targetId: target.id,
+        sourceId: source.id
+      });
+    }
+  }
+
+  return suggestions.sort((left, right) => right.score - left.score);
+}
+
+function mergeOptionCheckboxId(prefix, key) {
+  return `${prefix}-${key}`;
+}
+
+function replaceIdInList(list, oldId, newId) {
+  return Array.from(new Set((Array.isArray(list) ? list : []).map((entry) => normalizeText(entry)).filter(Boolean).map((entry) => entry === oldId ? newId : entry)));
+}
+
+function replaceAthleteIdReferences(oldAthleteId, newAthleteId) {
+  const normalizedOldId = normalizeText(oldAthleteId);
+  const normalizedNewId = normalizeText(newAthleteId);
+  if (!normalizedOldId || !normalizedNewId || normalizedOldId === normalizedNewId) {
+    return;
+  }
+
+  state.groups = state.groups.map((group) => ({
+    ...group,
+    athleteIds: replaceIdInList(group.athleteIds, normalizedOldId, normalizedNewId)
+  }));
+
+  state.digitalExportAthleteIds = replaceIdInList(state.digitalExportAthleteIds, normalizedOldId, normalizedNewId);
+  state.trainingMarkedAthleteIds = replaceIdInList(state.trainingMarkedAthleteIds, normalizedOldId, normalizedNewId);
+  state.mailerAthleteIds = replaceIdInList(state.mailerAthleteIds, normalizedOldId, normalizedNewId);
+
+  const nextInputDrafts = {};
+  for (const [disciplineId, draftEntries] of Object.entries(state.trainingInputDrafts || {})) {
+    nextInputDrafts[disciplineId] = {};
+    for (const [athleteId, value] of Object.entries(draftEntries || {})) {
+      nextInputDrafts[disciplineId][athleteId === normalizedOldId ? normalizedNewId : athleteId] = value;
+    }
+  }
+  state.trainingInputDrafts = nextInputDrafts;
+
+  if (state.trainingExamSessions && typeof state.trainingExamSessions === "object") {
+    for (const session of Object.values(state.trainingExamSessions)) {
+      if (!session?.athletes || typeof session.athletes !== "object") {
+        continue;
+      }
+
+      const oldState = session.athletes[normalizedOldId];
+      if (!oldState) {
+        continue;
+      }
+
+      if (!session.athletes[normalizedNewId]) {
+        session.athletes[normalizedNewId] = oldState;
+      }
+      delete session.athletes[normalizedOldId];
+    }
+  }
+
+  const nextInactiveMap = {};
+  for (const [dateKey, athleteIds] of Object.entries(state.trainingDailyInactiveAthleteIds || {})) {
+    nextInactiveMap[dateKey] = replaceIdInList(athleteIds, normalizedOldId, normalizedNewId);
+  }
+  state.trainingDailyInactiveAthleteIds = nextInactiveMap;
+
+  if (state.selectedAthleteId === normalizedOldId) {
+    state.selectedAthleteId = normalizedNewId;
+  }
+}
+
+function replaceGroupIdReferences(oldGroupId, newGroupId) {
+  const normalizedOldId = normalizeText(oldGroupId);
+  const normalizedNewId = normalizeText(newGroupId);
+  if (!normalizedOldId || !normalizedNewId || normalizedOldId === normalizedNewId) {
+    return;
+  }
+
+  state.digitalExportGroupIds = replaceIdInList(state.digitalExportGroupIds, normalizedOldId, normalizedNewId);
+  state.digitalExportAthleteGroupFilterIds = replaceIdInList(state.digitalExportAthleteGroupFilterIds, normalizedOldId, normalizedNewId);
+  state.mailerGroupIds = replaceIdInList(state.mailerGroupIds, normalizedOldId, normalizedNewId);
+
+  if (state.selectedGroupId === normalizedOldId) {
+    state.selectedGroupId = normalizedNewId;
+  }
+}
+
+function mergeAthletes(targetId, sourceId, selectedFields = [], { forceSelected = false } = {}) {
+  const target = state.athletes.find((entry) => entry.id === normalizeText(targetId)) || null;
+  const source = state.athletes.find((entry) => entry.id === normalizeText(sourceId)) || null;
+  if (!target || !source || target.id === source.id) {
+    return false;
+  }
+
+  const selectedSet = new Set((Array.isArray(selectedFields) ? selectedFields : []).map((entry) => normalizeText(entry)).filter(Boolean));
+  const fieldDefinitions = getAthleteMergeFieldDefinitions();
+
+  for (const definition of fieldDefinitions) {
+    if (!selectedSet.has(definition.key)) {
+      continue;
+    }
+
+    if (definition.key === "performances") {
+      target.performances = mergePerformanceMaps(target.performances, source.performances);
+      continue;
+    }
+
+    if (definition.isArray) {
+      if (definition.key === "emergencyEmails") {
+        target.emergencyEmails = normalizeEmergencyEmailList([
+          ...(Array.isArray(target.emergencyEmails) ? target.emergencyEmails : []),
+          ...(Array.isArray(source.emergencyEmails) ? source.emergencyEmails : [])
+        ]);
+      } else if (definition.key === "emergencyPhones") {
+        target.emergencyPhones = normalizeEmergencyPhoneList([
+          ...(Array.isArray(target.emergencyPhones) ? target.emergencyPhones : []),
+          ...(Array.isArray(source.emergencyPhones) ? source.emergencyPhones : [])
+        ]);
+      }
+      continue;
+    }
+
+    const sourceValue = source[definition.key];
+    if (definition.key === "birthDate") {
+      const targetBirth = normalizeText(target.birthDate);
+      const sourceBirth = normalizeText(source.birthDate);
+      const shouldAdoptSource = forceSelected || (isFullBirthDateValue(sourceBirth) && !isFullBirthDateValue(targetBirth)) || (!targetBirth && !!sourceBirth);
+      if (sourceBirth && shouldAdoptSource) {
+        target.birthDate = sourceBirth;
+      }
+      continue;
+    }
+
+    if (normalizeText(sourceValue)) {
+      if (forceSelected || !normalizeText(target[definition.key])) {
+        target[definition.key] = sourceValue;
+      }
+    }
+  }
+
+  replaceAthleteIdReferences(source.id, target.id);
+  state.athletes = state.athletes.filter((entry) => entry.id !== source.id);
+  clearTrainingStateForAthleteIds([source.id]);
+  target.updatedAt = new Date().toISOString();
+  return true;
+}
+
+function mergeGroups(targetId, sourceId, selectedFields = [], { forceSelected = false } = {}) {
+  const target = getGroupById(targetId);
+  const source = getGroupById(sourceId);
+  if (!target || !source || target.id === source.id) {
+    return false;
+  }
+
+  const selectedSet = new Set((Array.isArray(selectedFields) ? selectedFields : []).map((entry) => normalizeText(entry)).filter(Boolean));
+  if (selectedSet.has("name") && normalizeText(source.name) && (forceSelected || !normalizeText(target.name))) {
+    target.name = normalizeText(source.name);
+  }
+
+  if (selectedSet.has("athleteIds")) {
+    target.athleteIds = Array.from(new Set([...(Array.isArray(target.athleteIds) ? target.athleteIds : []), ...(Array.isArray(source.athleteIds) ? source.athleteIds : [])]));
+  }
+
+  if (selectedSet.has("trainingSlots")) {
+    mergeGroupTrainingSlots(target, source.trainingSlots || []);
+  }
+
+  replaceGroupIdReferences(source.id, target.id);
+  state.groups = state.groups.filter((entry) => entry.id !== source.id);
+  target.updatedAt = new Date().toISOString();
+  return true;
+}
+
+function getDefaultSelectedAthleteMergeFields(target, source) {
+  const selected = ["performances", "emergencyEmails", "emergencyPhones"];
+  for (const definition of getAthleteMergeFieldDefinitions()) {
+    if (definition.isSpecial || definition.isArray) {
+      continue;
+    }
+
+    const targetValue = normalizeText(target?.[definition.key]);
+    const sourceValue = normalizeText(source?.[definition.key]);
+    if (!targetValue && sourceValue) {
+      selected.push(definition.key);
+    }
+    if (definition.key === "birthDate" && !isFullBirthDateValue(targetValue) && isFullBirthDateValue(sourceValue)) {
+      selected.push(definition.key);
+    }
+  }
+  return Array.from(new Set(selected));
+}
+
+function getDefaultSelectedGroupMergeFields(target, source) {
+  const selected = ["athleteIds", "trainingSlots"];
+  if (!normalizeText(target?.name) && normalizeText(source?.name)) {
+    selected.push("name");
+  }
+  return selected;
+}
+
+function renderMergeOptionCheckboxes(container, definitions, selectedKeys = [], prefix) {
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+  const selectedSet = new Set((Array.isArray(selectedKeys) ? selectedKeys : []).map((entry) => normalizeText(entry)));
+  for (const definition of definitions) {
+    const label = document.createElement("label");
+    label.className = "results-group-filter-choice merge-option-choice";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.id = mergeOptionCheckboxId(prefix, definition.key);
+    checkbox.value = definition.key;
+    checkbox.checked = selectedSet.has(definition.key);
+
+    const text = document.createElement("span");
+    text.className = "results-group-filter-choice-name";
+    text.textContent = definition.label;
+
+    label.append(checkbox, text);
+    label.classList.toggle("is-selected", checkbox.checked);
+    checkbox.addEventListener("change", () => {
+      label.classList.toggle("is-selected", checkbox.checked);
+    });
+    container.append(label);
+  }
+}
+
+function getSelectedMergeFields(container) {
+  if (!container) {
+    return [];
+  }
+
+  return Array.from(container.querySelectorAll("input[type='checkbox']:checked")).map((checkbox) => normalizeText(checkbox.value)).filter(Boolean);
+}
+
+function renderMergeSelectOptions() {
+  if (!mergePrimarySelect || !mergeSecondarySelect) {
+    return;
+  }
+
+  const entityType = normalizeText(state.mergeEntityType) === "groups" ? "groups" : "athletes";
+  const items = entityType === "groups"
+    ? [...state.groups].sort((left, right) => normalizeText(left.name).localeCompare(normalizeText(right.name), "de"))
+    : getSortedAthletesByDisplayName(state.athletes);
+
+  const previousPrimary = normalizeText(mergePrimarySelect.value);
+  const previousSecondary = normalizeText(mergeSecondarySelect.value);
+  mergePrimarySelect.innerHTML = "";
+  mergeSecondarySelect.innerHTML = "";
+
+  for (const item of items) {
+    const optionA = document.createElement("option");
+    optionA.value = item.id;
+    optionA.textContent = entityType === "groups" ? getGroupSummaryLabel(item) : getAthleteSummaryLabel(item);
+    mergePrimarySelect.append(optionA);
+
+    const optionB = document.createElement("option");
+    optionB.value = item.id;
+    optionB.textContent = optionA.textContent;
+    mergeSecondarySelect.append(optionB);
+  }
+
+  mergePrimarySelect.value = Array.from(mergePrimarySelect.options).some((entry) => entry.value === previousPrimary)
+    ? previousPrimary
+    : (mergePrimarySelect.options[0]?.value || "");
+  mergeSecondarySelect.value = Array.from(mergeSecondarySelect.options).some((entry) => entry.value === previousSecondary && entry.value !== mergePrimarySelect.value)
+    ? previousSecondary
+    : (Array.from(mergeSecondarySelect.options).find((entry) => entry.value !== mergePrimarySelect.value)?.value || mergePrimarySelect.value || "");
+}
+
+function renderMergeManualOptions() {
+  renderMergeSelectOptions();
+  const entityType = normalizeText(state.mergeEntityType) === "groups" ? "groups" : "athletes";
+  const primaryId = normalizeText(mergePrimarySelect?.value);
+  let secondaryId = normalizeText(mergeSecondarySelect?.value);
+  if (primaryId && secondaryId === primaryId) {
+    secondaryId = Array.from(mergeSecondarySelect.options).find((entry) => entry.value !== primaryId)?.value || "";
+    mergeSecondarySelect.value = secondaryId;
+  }
+
+  const primary = entityType === "groups" ? getGroupById(primaryId) : (state.athletes.find((entry) => entry.id === primaryId) || null);
+  const secondary = entityType === "groups" ? getGroupById(secondaryId) : (state.athletes.find((entry) => entry.id === secondaryId) || null);
+
+  if (mergeEntityTypeSelect) {
+    mergeEntityTypeSelect.value = entityType;
+  }
+  if (mergeAthleteOptions) {
+    mergeAthleteOptions.hidden = entityType !== "athletes";
+  }
+  if (mergeGroupOptions) {
+    mergeGroupOptions.hidden = entityType !== "groups";
+  }
+
+  if (entityType === "athletes") {
+    renderMergeOptionCheckboxes(
+      mergeAthleteFieldOptions,
+      getAthleteMergeFieldDefinitions(),
+      getDefaultSelectedAthleteMergeFields(primary, secondary),
+      "merge-athlete-field"
+    );
+  } else {
+    renderMergeOptionCheckboxes(
+      mergeGroupFieldOptions,
+      getGroupMergeFieldDefinitions(),
+      getDefaultSelectedGroupMergeFields(primary, secondary),
+      "merge-group-field"
+    );
+  }
+
+  if (mergeRunButton) {
+    mergeRunButton.disabled = !primary || !secondary || primary.id === secondary.id;
+  }
+}
+
+function createMergeSuggestionCard(suggestion) {
+  const entityType = suggestion.type === "group" ? "group" : "athlete";
+  const target = entityType === "group" ? getGroupById(suggestion.targetId) : (state.athletes.find((entry) => entry.id === suggestion.targetId) || null);
+  const source = entityType === "group" ? getGroupById(suggestion.sourceId) : (state.athletes.find((entry) => entry.id === suggestion.sourceId) || null);
+  if (!target || !source) {
+    return null;
+  }
+
+  const card = document.createElement("article");
+  card.className = "import-preview-card merge-suggestion-card";
+
+  const head = document.createElement("div");
+  head.className = "import-preview-card-head";
+  const title = document.createElement("h4");
+  title.className = "import-preview-card-title";
+  title.textContent = entityType === "group" ? "Gruppen-Vermutung" : "Athleten-Vermutung";
+  const score = document.createElement("span");
+  score.className = "import-preview-type";
+  score.textContent = `${suggestion.score} Punkte`;
+  head.append(title, score);
+
+  const body = document.createElement("div");
+  body.className = "merge-suggestion-entities";
+  const keep = document.createElement("div");
+  keep.className = "merge-suggestion-entity";
+  keep.innerHTML = `<strong>Behalten:</strong><br>${entityType === "group" ? getGroupSummaryLabel(target) : getAthleteSummaryLabel(target)}`;
+  const merge = document.createElement("div");
+  merge.className = "merge-suggestion-entity";
+  merge.innerHTML = `<strong>Zusammenfuehren:</strong><br>${entityType === "group" ? getGroupSummaryLabel(source) : getAthleteSummaryLabel(source)}`;
+  body.append(keep, merge);
+
+  const reasons = document.createElement("p");
+  reasons.className = "import-preview-message";
+  reasons.textContent = `Treffer: ${suggestion.reasons.join(" | ")}`;
+
+  const actions = document.createElement("div");
+  actions.className = "results-inline-actions results-inline-actions--wrap";
+  const mergeButton = document.createElement("button");
+  mergeButton.type = "button";
+  mergeButton.className = "primary-btn";
+  mergeButton.textContent = "Vorschlag uebernehmen";
+  mergeButton.addEventListener("click", () => {
+    const applied = entityType === "group"
+      ? mergeGroups(target.id, source.id, getDefaultSelectedGroupMergeFields(target, source))
+      : mergeAthletes(target.id, source.id, getDefaultSelectedAthleteMergeFields(target, source));
+    if (!applied) {
+      showToast("Zusammenfuehren fehlgeschlagen.");
+      return;
+    }
+
+    saveAthletes();
+    saveGroups();
+    saveTrainingState();
+    refreshAthleteViews();
+    renderMergeTools();
+    showToast(entityType === "group" ? "Gruppen zusammengefuehrt." : "Athleten zusammengefuehrt.");
+  });
+  actions.append(mergeButton);
+
+  card.append(head, body, reasons, actions);
+  return card;
+}
+
+function renderMergeSuggestionLists() {
+  const athleteSuggestions = buildAthleteDuplicateSuggestions();
+  const groupSuggestions = buildGroupDuplicateSuggestions();
+
+  if (mergeAthleteSuggestionsSummary) {
+    mergeAthleteSuggestionsSummary.textContent = `${athleteSuggestions.length} Vorschlaege`;
+  }
+  if (mergeGroupSuggestionsSummary) {
+    mergeGroupSuggestionsSummary.textContent = `${groupSuggestions.length} Vorschlaege`;
+  }
+
+  if (mergeAthleteSuggestions) {
+    mergeAthleteSuggestions.innerHTML = "";
+    if (athleteSuggestions.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "group-empty-note";
+      empty.textContent = "Keine auffaelligen Athleten-Duplikate gefunden.";
+      mergeAthleteSuggestions.append(empty);
+    } else {
+      for (const suggestion of athleteSuggestions.slice(0, 24)) {
+        const card = createMergeSuggestionCard(suggestion);
+        if (card) mergeAthleteSuggestions.append(card);
+      }
+    }
+  }
+
+  if (mergeGroupSuggestions) {
+    mergeGroupSuggestions.innerHTML = "";
+    if (groupSuggestions.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "group-empty-note";
+      empty.textContent = "Keine auffaelligen Gruppen-Duplikate gefunden.";
+      mergeGroupSuggestions.append(empty);
+    } else {
+      for (const suggestion of groupSuggestions.slice(0, 24)) {
+        const card = createMergeSuggestionCard(suggestion);
+        if (card) mergeGroupSuggestions.append(card);
+      }
+    }
+  }
+}
+
+function renderMergeTools() {
+  renderMergeSuggestionLists();
+  renderMergeManualOptions();
+}
+
+function runManualMerge() {
+  const entityType = normalizeText(state.mergeEntityType) === "groups" ? "groups" : "athletes";
+  const primaryId = normalizeText(mergePrimarySelect?.value);
+  const secondaryId = normalizeText(mergeSecondarySelect?.value);
+  if (!primaryId || !secondaryId || primaryId === secondaryId) {
+    showToast("Bitte unterschiedliche Eintraege fuer Ziel und Quelle waehlen.");
+    return;
+  }
+
+  const selectedFields = entityType === "groups"
+    ? getSelectedMergeFields(mergeGroupFieldOptions)
+    : getSelectedMergeFields(mergeAthleteFieldOptions);
+
+  const applied = entityType === "groups"
+    ? mergeGroups(primaryId, secondaryId, selectedFields, { forceSelected: true })
+    : mergeAthletes(primaryId, secondaryId, selectedFields, { forceSelected: true });
+
+  if (!applied) {
+    showToast("Zusammenfuehren fehlgeschlagen.");
+    return;
+  }
+
+  saveAthletes();
+  saveGroups();
+  saveTrainingState();
+  refreshAthleteViews();
+  renderMergeTools();
+  showToast(entityType === "groups" ? "Gruppen zusammengefuehrt." : "Athleten zusammengefuehrt.");
+}
+
+function getAthleteEmailAddresses(athlete) {
+  if (!athlete) {
+    return [];
+  }
+
+  return normalizeEmergencyEmailList([
+    normalizeText(athlete.email),
+    ...(Array.isArray(athlete.emergencyEmails) ? athlete.emergencyEmails : [])
+  ]);
+}
+
+function getAthletesForMailerScope() {
+  const scope = normalizeText(state.mailerScope) || "all";
+
+  if (scope === "current") {
+    return getVisibleAthletes();
+  }
+
+  if (scope === "groups") {
+    const groupIds = (Array.isArray(state.mailerGroupIds) ? state.mailerGroupIds : []).map((entry) => normalizeText(entry)).filter(Boolean);
+    if (groupIds.length === 0) {
+      return [];
+    }
+
+    const athleteIds = new Set();
+    for (const groupId of groupIds) {
+      const group = getGroupById(groupId);
+      if (!group) {
+        continue;
+      }
+
+      for (const athleteId of group.athleteIds || []) {
+        athleteIds.add(normalizeText(athleteId));
+      }
+    }
+
+    return state.athletes.filter((athlete) => athleteIds.has(athlete.id));
+  }
+
+  if (scope === "athletes") {
+    const selectedIds = new Set((Array.isArray(state.mailerAthleteIds) ? state.mailerAthleteIds : []).map((entry) => normalizeText(entry)).filter(Boolean));
+    return state.athletes.filter((athlete) => selectedIds.has(athlete.id));
+  }
+
+  return state.athletes;
+}
+
+function getMailerEmailList() {
+  const athletes = getAthletesForMailerScope();
+  const uniqueEmails = new Map();
+
+  for (const athlete of athletes) {
+    const addresses = getAthleteEmailAddresses(athlete);
+    for (const address of addresses) {
+      const key = normalizeText(address).toLowerCase();
+      if (!key) {
+        continue;
+      }
+
+      uniqueEmails.set(key, key);
+    }
+  }
+
+  return Array.from(uniqueEmails.values());
+}
+
+function openMailerDraft(recipientMode = "bcc") {
+  const emails = getMailerEmailList();
+  if (emails.length === 0) {
+    showToast("Keine Mail-Adressen zum Oeffnen gefunden.");
+    return;
+  }
+
+  const mode = ["to", "cc", "bcc"].includes(normalizeText(recipientMode).toLowerCase())
+    ? normalizeText(recipientMode).toLowerCase()
+    : "bcc";
+
+  const joined = emails.join(",");
+  let mailtoTarget = "mailto:";
+
+  if (mode === "to") {
+    mailtoTarget += joined;
+  } else {
+    const params = new URLSearchParams();
+    params.set(mode, joined);
+    mailtoTarget += `?${params.toString()}`;
+  }
+
+  window.location.href = mailtoTarget;
+}
+
+function renderMailerGroupOptions() {
+  if (!mailerGroupSelect) {
+    return;
+  }
+
+  const selectedSet = new Set((Array.isArray(state.mailerGroupIds) ? state.mailerGroupIds : []).map((entry) => normalizeText(entry)).filter(Boolean));
+  mailerGroupSelect.innerHTML = "";
+
+  const sortedGroups = [...state.groups].sort((left, right) => normalizeText(left.name).localeCompare(normalizeText(right.name), "de"));
+  for (const group of sortedGroups) {
+    const option = document.createElement("option");
+    option.value = group.id;
+    option.textContent = `${group.name} (${Array.isArray(group.athleteIds) ? group.athleteIds.length : 0})`;
+    option.selected = selectedSet.has(group.id);
+    mailerGroupSelect.append(option);
+  }
+}
+
+function renderMailerAthleteSelection() {
+  if (!mailerAthleteSelection) {
+    return;
+  }
+
+  const selectedSet = new Set((Array.isArray(state.mailerAthleteIds) ? state.mailerAthleteIds : []).map((entry) => normalizeText(entry)).filter(Boolean));
+  mailerAthleteSelection.innerHTML = "";
+
+  const sortedAthletes = getSortedAthletesByDisplayName(state.athletes);
+  for (const athlete of sortedAthletes) {
+    const label = document.createElement("label");
+    label.className = "results-athlete-item";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = athlete.id;
+    checkbox.checked = selectedSet.has(athlete.id);
+
+    const name = document.createElement("span");
+    const athleteEmails = getAthleteEmailAddresses(athlete);
+    name.textContent = `${athleteDisplayName(athlete)}${athleteEmails.length ? ` (${athleteEmails.length})` : ""}`;
+
+    checkbox.addEventListener("change", () => {
+      const nextSet = new Set((Array.isArray(state.mailerAthleteIds) ? state.mailerAthleteIds : []).map((entry) => normalizeText(entry)).filter(Boolean));
+      if (checkbox.checked) {
+        nextSet.add(athlete.id);
+      } else {
+        nextSet.delete(athlete.id);
+      }
+
+      state.mailerAthleteIds = Array.from(nextSet);
+      renderMailerPreview();
+      label.classList.toggle("is-selected", checkbox.checked);
+    });
+
+    label.classList.toggle("is-selected", checkbox.checked);
+    label.append(checkbox, name);
+    mailerAthleteSelection.append(label);
+  }
+}
+
+function renderMailerPreview() {
+  const emails = getMailerEmailList();
+  if (mailerOutput) {
+    mailerOutput.value = emails.join("; ");
+  }
+
+  if (mailerSummary) {
+    mailerSummary.textContent = `${emails.length} E-Mail Adresse${emails.length === 1 ? "" : "n"} gefunden.`;
+  }
+
+  const disableOpenActions = emails.length === 0;
+  if (mailerOpenToButton) {
+    mailerOpenToButton.disabled = disableOpenActions;
+  }
+  if (mailerOpenCcButton) {
+    mailerOpenCcButton.disabled = disableOpenActions;
+  }
+  if (mailerOpenBccButton) {
+    mailerOpenBccButton.disabled = disableOpenActions;
+  }
+}
+
+function renderMailerControls() {
+  const allowedScopes = new Set(["all", "current", "groups", "athletes"]);
+  if (!allowedScopes.has(normalizeText(state.mailerScope))) {
+    state.mailerScope = "all";
+  }
+
+  const validGroupIds = new Set(state.groups.map((group) => group.id));
+  state.mailerGroupIds = (Array.isArray(state.mailerGroupIds) ? state.mailerGroupIds : []).map((entry) => normalizeText(entry)).filter((groupId) => validGroupIds.has(groupId));
+
+  const validAthleteIds = new Set(state.athletes.map((athlete) => athlete.id));
+  state.mailerAthleteIds = (Array.isArray(state.mailerAthleteIds) ? state.mailerAthleteIds : []).map((entry) => normalizeText(entry)).filter((athleteId) => validAthleteIds.has(athleteId));
+
+  if (mailerScopeSelect) {
+    mailerScopeSelect.value = state.mailerScope;
+  }
+
+  if (mailerGroupWrap) {
+    mailerGroupWrap.hidden = state.mailerScope !== "groups";
+  }
+
+  if (mailerAthletesWrap) {
+    mailerAthletesWrap.hidden = state.mailerScope !== "athletes";
+  }
+
+  renderMailerGroupOptions();
+  renderMailerAthleteSelection();
+  renderMailerPreview();
+}
+
+function formatBirthDateForCertificateOutput(rawBirthDate) {
+  const birthDate = normalizeText(rawBirthDate);
+  if (!birthDate) {
+    return "";
+  }
+
+  const dateMatch = birthDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!dateMatch) {
+    return birthDate;
+  }
+
+  return `${dateMatch[3]}.${dateMatch[2]}.${dateMatch[1]}`;
+}
+
+function getCertificateOverallAwardText(overallLevel) {
+  if (overallLevel === "Gold") {
+    return "Hat mit vollem Erfolg das Deutsche Sportabzeichen in der Stufe Gold erreicht.";
+  }
+
+  if (overallLevel === "Silber" || overallLevel === "Bronze") {
+    return "Hat das Deutsche Sportabzeichen erreicht.";
+  }
+
+  return "";
+}
+
+function getAthletesForCertificateScope() {
+  const scope = normalizeText(state.certificateScope) || "all";
+  if (scope === "groups") {
+    const selectedGroupIds = new Set((Array.isArray(state.certificateGroupIds) ? state.certificateGroupIds : []).map((entry) => normalizeText(entry)).filter(Boolean));
+    if (selectedGroupIds.size === 0) {
+      return [];
+    }
+
+    const athleteIds = new Set();
+    for (const group of state.groups) {
+      if (!selectedGroupIds.has(group.id)) {
+        continue;
+      }
+
+      for (const athleteId of group.athleteIds || []) {
+        athleteIds.add(normalizeText(athleteId));
+      }
+    }
+
+    return state.athletes.filter((athlete) => athleteIds.has(athlete.id));
+  }
+
+  if (scope === "athletes") {
+    const selectedAthleteIds = new Set((Array.isArray(state.certificateAthleteIds) ? state.certificateAthleteIds : []).map((entry) => normalizeText(entry)).filter(Boolean));
+    return state.athletes.filter((athlete) => selectedAthleteIds.has(athlete.id));
+  }
+
+  return state.athletes.slice();
+}
+
+function getCertificateDisciplineCatalog(athletes = []) {
+  const catalogMap = new Map();
+
+  for (const athlete of athletes) {
+    const requirementGroup = getRequirementGroupForAthlete(athlete);
+    const groups = getRenderableDisciplineGroups(athlete, requirementGroup);
+    for (const categoryGroup of groups) {
+      for (const descriptor of categoryGroup.disciplines) {
+        const key = normalizeText(descriptor?.storageKey);
+        if (!key || catalogMap.has(key)) {
+          continue;
+        }
+
+        const labelParts = splitDisciplineDisplay(descriptor);
+        catalogMap.set(key, {
+          key,
+          category: normalizeText(categoryGroup.category),
+          title: normalizeText(labelParts.title || descriptor?.disciplineName),
+          detail: normalizeText(labelParts.detail),
+          descriptorKind: normalizeText(descriptor?.kind || "standard")
+        });
+      }
+    }
+  }
+
+  return Array.from(catalogMap.values()).sort((left, right) => {
+    const byCategory = normalizeText(left.category).localeCompare(normalizeText(right.category), "de");
+    if (byCategory !== 0) {
+      return byCategory;
+    }
+
+    const byTitle = normalizeText(left.title).localeCompare(normalizeText(right.title), "de");
+    if (byTitle !== 0) {
+      return byTitle;
+    }
+
+    return normalizeText(left.detail).localeCompare(normalizeText(right.detail), "de");
+  });
+}
+
+function getCertificateDescriptorLabel(catalogEntry, { includeExecutionDetails = true } = {}) {
+  const category = normalizeText(catalogEntry?.category);
+  const title = normalizeText(catalogEntry?.title);
+  const detail = normalizeText(catalogEntry?.detail);
+  const base = category ? `${category}: ${title}` : title;
+  if (includeExecutionDetails && detail) {
+    return `${base} (${detail})`;
+  }
+  return base;
+}
+
+function getCertificateDescriptorMapForAthlete(athlete, requirementGroup) {
+  const descriptorMap = new Map();
+  const groups = getRenderableDisciplineGroups(athlete, requirementGroup);
+  for (const categoryGroup of groups) {
+    for (const descriptor of categoryGroup.disciplines) {
+      const key = normalizeText(descriptor?.storageKey);
+      if (!key) {
+        continue;
+      }
+
+      descriptorMap.set(key, descriptor);
+    }
+  }
+
+  return descriptorMap;
+}
+
+function getCertificateDisciplineValue(athlete, requirementGroup, descriptor, { includeLevelDetails = true } = {}) {
+  if (!descriptor || !athlete) {
+    return "";
+  }
+
+  if (descriptor.kind === "standard") {
+    const entries = getPerformanceEntries(athlete, descriptor.storageKey);
+    const bestEntry = getBestPerformanceEntry(descriptor, entries);
+    if (!bestEntry) {
+      return "";
+    }
+
+    const bestValue = formatNormalizedValue(descriptor, bestEntry.valueNormalized, bestEntry.valueInput);
+    const bestLevel = evaluatePerformanceLevel(descriptor, bestEntry.valueNormalized);
+    if (!includeLevelDetails || bestLevel === "-") {
+      return bestValue;
+    }
+
+    return `${bestValue} (${bestLevel})`;
+  }
+
+  const viewModel = getDisciplineListItemViewModel(athlete, requirementGroup, descriptor);
+  const bestValue = normalizeText(viewModel?.bestValue);
+  const bestLevel = normalizeText(viewModel?.bestLevel);
+  if (!bestValue || bestValue === "-") {
+    return "";
+  }
+
+  if (!includeLevelDetails || bestLevel === "-" || !bestLevel) {
+    return bestValue;
+  }
+
+  return `${bestValue} (${bestLevel})`;
+}
+
+function collectCertificateExportRows() {
+  const athletes = getSortedAthletesByDisplayName(getAthletesForCertificateScope());
+  const catalog = getCertificateDisciplineCatalog(athletes);
+  const disciplineMode = normalizeText(state.certificateDisciplineMode) || "all";
+  const selectedDisciplineSet = new Set((Array.isArray(state.certificateDisciplineKeys) ? state.certificateDisciplineKeys : []).map((entry) => normalizeText(entry)).filter(Boolean));
+
+  const activeCatalog = disciplineMode === "selected"
+    ? catalog.filter((entry) => selectedDisciplineSet.has(entry.key))
+    : catalog;
+
+  const includeExecutionDetails = state.certificateIncludeExecutionDetails !== false;
+  const includeLevelDetails = state.certificateIncludeLevelDetails !== false;
+
+  const header = ["Vorname", "Nachname", "Geburtsdatum", "DSA", "DSA_Text", "Leistungen"];
+  for (const entry of activeCatalog) {
+    header.push(getCertificateDescriptorLabel(entry, { includeExecutionDetails }));
+  }
+
+  const rows = [header];
+  for (const athlete of athletes) {
+    const requirementGroup = getRequirementGroupForAthlete(athlete);
+    const categoryLevels = getAthleteCategoryLevels(athlete, requirementGroup);
+    const overallLevel = getOverallAwardLevel(categoryLevels);
+    const dsaText = getCertificateOverallAwardText(overallLevel);
+    const descriptorMap = getCertificateDescriptorMapForAthlete(athlete, requirementGroup);
+
+    const performanceSummaryParts = [];
+    const row = [
+      normalizeText(athlete.firstName),
+      normalizeText(athlete.lastName),
+      formatBirthDateForCertificateOutput(athlete.birthDate),
+      overallLevel === "-" ? "" : overallLevel,
+      dsaText
+    ];
+
+    const disciplineValues = [];
+    for (const catalogEntry of activeCatalog) {
+      const descriptor = descriptorMap.get(catalogEntry.key) || null;
+      const value = getCertificateDisciplineValue(athlete, requirementGroup, descriptor, { includeLevelDetails });
+      disciplineValues.push(value);
+
+      if (value) {
+        performanceSummaryParts.push(`${getCertificateDescriptorLabel(catalogEntry, { includeExecutionDetails })}: ${value}`);
+      }
+    }
+
+    row.push(performanceSummaryParts.join(" | "));
+    row.push(...disciplineValues);
+    rows.push(row);
+  }
+
+  return {
+    athletes,
+    catalog: activeCatalog,
+    rows
+  };
+}
+
+function renderCertificateGroupOptions() {
+  if (!certificateGroupSelect) {
+    return;
+  }
+
+  const selectedSet = new Set((Array.isArray(state.certificateGroupIds) ? state.certificateGroupIds : []).map((entry) => normalizeText(entry)).filter(Boolean));
+  certificateGroupSelect.innerHTML = "";
+
+  const sortedGroups = [...state.groups].sort((left, right) => normalizeText(left.name).localeCompare(normalizeText(right.name), "de"));
+  for (const group of sortedGroups) {
+    const option = document.createElement("option");
+    option.value = group.id;
+    option.selected = selectedSet.has(group.id);
+    option.textContent = `${group.name} (${Array.isArray(group.athleteIds) ? group.athleteIds.length : 0})`;
+    certificateGroupSelect.append(option);
+  }
+}
+
+function renderCertificateAthleteSelection() {
+  if (!certificateAthleteSelection) {
+    return;
+  }
+
+  const selectedSet = new Set((Array.isArray(state.certificateAthleteIds) ? state.certificateAthleteIds : []).map((entry) => normalizeText(entry)).filter(Boolean));
+  certificateAthleteSelection.innerHTML = "";
+
+  for (const athlete of getSortedAthletesByDisplayName(state.athletes)) {
+    const label = document.createElement("label");
+    label.className = "results-athlete-item";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = athlete.id;
+    checkbox.checked = selectedSet.has(athlete.id);
+
+    const text = document.createElement("span");
+    text.textContent = `${athleteDisplayName(athlete)} (${formatBirthDateForCertificateOutput(athlete.birthDate) || "-"})`;
+
+    checkbox.addEventListener("change", () => {
+      const nextSet = new Set((Array.isArray(state.certificateAthleteIds) ? state.certificateAthleteIds : []).map((entry) => normalizeText(entry)).filter(Boolean));
+      if (checkbox.checked) {
+        nextSet.add(athlete.id);
+      } else {
+        nextSet.delete(athlete.id);
+      }
+
+      state.certificateAthleteIds = Array.from(nextSet);
+      label.classList.toggle("is-selected", checkbox.checked);
+      renderCertificateDisciplineSelection();
+      renderCertificateSummary();
+    });
+
+    label.classList.toggle("is-selected", checkbox.checked);
+    label.append(checkbox, text);
+    certificateAthleteSelection.append(label);
+  }
+}
+
+function renderCertificateDisciplineSelection() {
+  if (!certificateDisciplineSelection) {
+    return;
+  }
+
+  const athletes = getAthletesForCertificateScope();
+  const catalog = getCertificateDisciplineCatalog(athletes);
+  const validDisciplineKeys = new Set(catalog.map((entry) => entry.key));
+  state.certificateDisciplineKeys = (Array.isArray(state.certificateDisciplineKeys) ? state.certificateDisciplineKeys : [])
+    .map((entry) => normalizeText(entry))
+    .filter((entry) => validDisciplineKeys.has(entry));
+
+  const selectedSet = new Set(state.certificateDisciplineKeys);
+  certificateDisciplineSelection.innerHTML = "";
+
+  for (const catalogEntry of catalog) {
+    const label = document.createElement("label");
+    label.className = "results-athlete-item";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = catalogEntry.key;
+    checkbox.checked = selectedSet.has(catalogEntry.key);
+
+    const text = document.createElement("span");
+    text.textContent = getCertificateDescriptorLabel(catalogEntry, { includeExecutionDetails: true });
+
+    checkbox.addEventListener("change", () => {
+      const nextSet = new Set((Array.isArray(state.certificateDisciplineKeys) ? state.certificateDisciplineKeys : []).map((entry) => normalizeText(entry)).filter(Boolean));
+      if (checkbox.checked) {
+        nextSet.add(catalogEntry.key);
+      } else {
+        nextSet.delete(catalogEntry.key);
+      }
+
+      state.certificateDisciplineKeys = Array.from(nextSet);
+      label.classList.toggle("is-selected", checkbox.checked);
+      renderCertificateSummary();
+    });
+
+    label.classList.toggle("is-selected", checkbox.checked);
+    label.append(checkbox, text);
+    certificateDisciplineSelection.append(label);
+  }
+}
+
+function renderCertificateSummary() {
+  if (!certificateSelectionSummary) {
+    return;
+  }
+
+  const athleteCount = getAthletesForCertificateScope().length;
+  const catalog = getCertificateDisciplineCatalog(getAthletesForCertificateScope());
+  const disciplineMode = normalizeText(state.certificateDisciplineMode) || "all";
+  const selectedSet = new Set((Array.isArray(state.certificateDisciplineKeys) ? state.certificateDisciplineKeys : []).map((entry) => normalizeText(entry)).filter(Boolean));
+  const disciplineCount = disciplineMode === "selected"
+    ? catalog.filter((entry) => selectedSet.has(entry.key)).length
+    : catalog.length;
+
+  certificateSelectionSummary.textContent = `${athleteCount} Athleten | ${disciplineCount} Disziplinen`;
+}
+
+function renderCertificateAssetMeta() {
+  if (certificateBackgroundMeta) {
+    certificateBackgroundMeta.textContent = state.certificateBackgroundName
+      ? `Hintergrund: ${state.certificateBackgroundName}`
+      : "Kein Hintergrund gewaehlt.";
+  }
+
+  if (certificateLogoPrimaryMeta) {
+    certificateLogoPrimaryMeta.textContent = state.certificateLogoPrimaryName
+      ? `Logo 1: ${state.certificateLogoPrimaryName}`
+      : "Kein Logo 1 gewaehlt.";
+  }
+
+  if (certificateLogoSecondaryMeta) {
+    certificateLogoSecondaryMeta.textContent = state.certificateLogoSecondaryName
+      ? `Logo 2: ${state.certificateLogoSecondaryName}`
+      : "Kein Logo 2 gewaehlt.";
+  }
+}
+
+function renderCertificateTools() {
+  const validScopes = new Set(["all", "groups", "athletes"]);
+  if (!validScopes.has(normalizeText(state.certificateScope))) {
+    state.certificateScope = "all";
+  }
+
+  const validGroupIds = new Set(state.groups.map((group) => group.id));
+  state.certificateGroupIds = (Array.isArray(state.certificateGroupIds) ? state.certificateGroupIds : [])
+    .map((entry) => normalizeText(entry))
+    .filter((groupId) => validGroupIds.has(groupId));
+
+  const validAthleteIds = new Set(state.athletes.map((athlete) => athlete.id));
+  state.certificateAthleteIds = (Array.isArray(state.certificateAthleteIds) ? state.certificateAthleteIds : [])
+    .map((entry) => normalizeText(entry))
+    .filter((athleteId) => validAthleteIds.has(athleteId));
+
+  if (certificateScopeSelect) {
+    certificateScopeSelect.value = state.certificateScope;
+  }
+
+  if (certificateGroupWrap) {
+    certificateGroupWrap.hidden = state.certificateScope !== "groups";
+  }
+
+  if (certificateAthletesWrap) {
+    certificateAthletesWrap.hidden = state.certificateScope !== "athletes";
+  }
+
+  if (certificateDisciplineModeSelect) {
+    const mode = normalizeText(state.certificateDisciplineMode);
+    state.certificateDisciplineMode = mode === "selected" ? "selected" : "all";
+    certificateDisciplineModeSelect.value = state.certificateDisciplineMode;
+  }
+
+  if (certificateDisciplinesWrap) {
+    certificateDisciplinesWrap.hidden = state.certificateDisciplineMode !== "selected";
+  }
+
+  if (certificateIncludeExecutionCheckbox) {
+    certificateIncludeExecutionCheckbox.checked = state.certificateIncludeExecutionDetails !== false;
+  }
+
+  if (certificateIncludeLevelCheckbox) {
+    certificateIncludeLevelCheckbox.checked = state.certificateIncludeLevelDetails !== false;
+  }
+
+  if (certificateHeadlineInput) {
+    certificateHeadlineInput.value = normalizeText(state.certificateHeadline) || "Urkunde";
+  }
+
+  if (certificateLayoutSelect) {
+    const validLayoutModes = new Set(["a4-single", "a4-double", "a5-single", "a5-double"]);
+    if (!validLayoutModes.has(normalizeText(state.certificateLayoutMode))) {
+      state.certificateLayoutMode = "a4-single";
+    }
+    certificateLayoutSelect.value = state.certificateLayoutMode;
+  }
+
+  if (certificateDesignSelect) {
+    const validDesigns = new Set(Array.from({ length: 10 }, (_unused, index) => `design-${index + 1}`));
+    if (!validDesigns.has(normalizeText(state.certificateDesign))) {
+      state.certificateDesign = "design-1";
+    }
+    certificateDesignSelect.value = state.certificateDesign;
+  }
+
+  renderCertificateGroupOptions();
+  renderCertificateAthleteSelection();
+  renderCertificateDisciplineSelection();
+  renderCertificateAssetMeta();
+  renderCertificateSummary();
+}
+
+function exportCertificateMailMergeCsv() {
+  const { athletes, catalog, rows } = collectCertificateExportRows();
+  if (athletes.length === 0) {
+    showToast("Keine Athleten fuer den Urkunden-Export ausgewaehlt.");
+    return;
+  }
+
+  if (normalizeText(state.certificateDisciplineMode) === "selected" && catalog.length === 0) {
+    showToast("Bitte mindestens eine Disziplin auswaehlen.");
+    return;
+  }
+
+  const csvText = serializeCsvRows(rows, ";");
+  const fileName = `urkunden-serienbrief-${formatDateForFilename()}.csv`;
+  downloadTextFile(fileName, csvText, { mimeType: "text/csv;charset=utf-8", withBom: true });
+  showToast(`Urkunden-CSV exportiert (${athletes.length} Athleten).`);
+}
+
+function readImageFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")), { once: true });
+    reader.addEventListener("error", () => reject(new Error("Datei konnte nicht gelesen werden.")), { once: true });
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleCertificateImageUpload(inputElement, targetKey) {
+  const file = inputElement?.files?.[0] || null;
+  if (!file) {
+    if (targetKey === "background") {
+      state.certificateBackgroundDataUrl = "";
+      state.certificateBackgroundName = "";
+    } else if (targetKey === "logoPrimary") {
+      state.certificateLogoPrimaryDataUrl = "";
+      state.certificateLogoPrimaryName = "";
+    } else if (targetKey === "logoSecondary") {
+      state.certificateLogoSecondaryDataUrl = "";
+      state.certificateLogoSecondaryName = "";
+    }
+
+    renderCertificateAssetMeta();
+    return;
+  }
+
+  try {
+    const dataUrl = await readImageFileAsDataUrl(file);
+    if (targetKey === "background") {
+      state.certificateBackgroundDataUrl = dataUrl;
+      state.certificateBackgroundName = normalizeText(file.name);
+    } else if (targetKey === "logoPrimary") {
+      state.certificateLogoPrimaryDataUrl = dataUrl;
+      state.certificateLogoPrimaryName = normalizeText(file.name);
+    } else if (targetKey === "logoSecondary") {
+      state.certificateLogoSecondaryDataUrl = dataUrl;
+      state.certificateLogoSecondaryName = normalizeText(file.name);
+    }
+  } catch (_error) {
+    showToast("Bilddatei konnte nicht geladen werden.");
+  }
+
+  renderCertificateAssetMeta();
+}
+
+function escapeHtml(value) {
+  const text = String(value ?? "");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getCertificateLayoutSettings(layoutMode) {
+  if (layoutMode === "a4-double") {
+    return { pageSize: "A4", cardsPerPage: 2, cardMinHeight: "130mm" };
+  }
+
+  if (layoutMode === "a5-single") {
+    return { pageSize: "A5", cardsPerPage: 1, cardMinHeight: "180mm" };
+  }
+
+  if (layoutMode === "a5-double") {
+    return { pageSize: "A5", cardsPerPage: 2, cardMinHeight: "84mm" };
+  }
+
+  return { pageSize: "A4", cardsPerPage: 1, cardMinHeight: "260mm" };
+}
+
+function buildCertificatePrintDocument() {
+  const { athletes, catalog } = collectCertificateExportRows();
+  if (athletes.length === 0) {
+    return { ok: false, message: "Keine Athleten fuer den Druck ausgewaehlt." };
+  }
+
+  if (normalizeText(state.certificateDisciplineMode) === "selected" && catalog.length === 0) {
+    return { ok: false, message: "Bitte mindestens eine Disziplin auswaehlen." };
+  }
+
+  const includeExecutionDetails = state.certificateIncludeExecutionDetails !== false;
+  const includeLevelDetails = state.certificateIncludeLevelDetails !== false;
+  const layoutSettings = getCertificateLayoutSettings(normalizeText(state.certificateLayoutMode));
+  const headline = normalizeText(state.certificateHeadline) || "Urkunde";
+  const designClass = normalizeText(state.certificateDesign) || "design-1";
+
+  const pageChunks = [];
+  for (let index = 0; index < athletes.length; index += layoutSettings.cardsPerPage) {
+    pageChunks.push(athletes.slice(index, index + layoutSettings.cardsPerPage));
+  }
+
+  const backgroundStyle = state.certificateBackgroundDataUrl
+    ? `background-image: url('${state.certificateBackgroundDataUrl}'); background-size: cover; background-position: center;`
+    : "";
+
+  const pagesHtml = pageChunks.map((athleteChunk) => {
+    const cardsHtml = athleteChunk.map((athlete) => {
+      const requirementGroup = getRequirementGroupForAthlete(athlete);
+      const descriptorMap = getCertificateDescriptorMapForAthlete(athlete, requirementGroup);
+      const categoryLevels = getAthleteCategoryLevels(athlete, requirementGroup);
+      const overallLevel = getOverallAwardLevel(categoryLevels);
+      const dsaText = getCertificateOverallAwardText(overallLevel);
+
+      const rows = [];
+      for (const catalogEntry of catalog) {
+        const descriptor = descriptorMap.get(catalogEntry.key) || null;
+        const value = getCertificateDisciplineValue(athlete, requirementGroup, descriptor, { includeLevelDetails });
+        if (!value) {
+          continue;
+        }
+
+        rows.push(`<li><strong>${escapeHtml(getCertificateDescriptorLabel(catalogEntry, { includeExecutionDetails }))}:</strong> ${escapeHtml(value)}</li>`);
+      }
+
+      const listHtml = rows.length > 0
+        ? `<ul class="certificate-performance-list">${rows.join("")}</ul>`
+        : '<p class="certificate-empty">Keine hinterlegten Leistungen.</p>';
+
+      const logoPrimaryHtml = state.certificateLogoPrimaryDataUrl
+        ? `<img class="certificate-logo certificate-logo--left" src="${escapeHtml(state.certificateLogoPrimaryDataUrl)}" alt="Logo links" />`
+        : "";
+      const logoSecondaryHtml = state.certificateLogoSecondaryDataUrl
+        ? `<img class="certificate-logo certificate-logo--right" src="${escapeHtml(state.certificateLogoSecondaryDataUrl)}" alt="Logo rechts" />`
+        : "";
+
+      return `
+        <article class="certificate-card ${escapeHtml(designClass)}" style="${backgroundStyle}">
+          <header class="certificate-head">
+            ${logoPrimaryHtml}
+            ${logoSecondaryHtml}
+            <h1>${escapeHtml(headline)}</h1>
+          </header>
+          <section class="certificate-main">
+            <p class="certificate-name">${escapeHtml(athleteDisplayName(athlete) || "Unbenannt")}</p>
+            <p class="certificate-meta">Geburtsdatum: ${escapeHtml(formatBirthDateForCertificateOutput(athlete.birthDate) || "-")}</p>
+            <p class="certificate-dsa">${escapeHtml(dsaText || "")}</p>
+            <h2>Leistungen</h2>
+            ${listHtml}
+          </section>
+        </article>
+      `;
+    }).join("");
+
+    return `<section class="certificate-page">${cardsHtml}</section>`;
+  }).join("");
+
+  const html = `
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Urkunden Druck</title>
+  <style>
+    @page { size: ${layoutSettings.pageSize}; margin: 10mm; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; font-family: "Georgia", "Times New Roman", serif; color: #13233d; }
+    body { background: #f1f5fb; }
+    .certificate-page { display: grid; grid-template-columns: 1fr; gap: 10mm; page-break-after: always; }
+    .certificate-page:last-child { page-break-after: auto; }
+    .certificate-card {
+      min-height: ${layoutSettings.cardMinHeight};
+      border: 2px solid var(--cert-border, #305f93);
+      border-radius: 8mm;
+      padding: 10mm;
+      position: relative;
+      overflow: hidden;
+      background-color: var(--cert-bg, #ffffff);
+    }
+    .certificate-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(160deg, var(--cert-glow, rgba(37, 99, 235, 0.08)), rgba(255, 255, 255, 0.2));
+      pointer-events: none;
+    }
+    .certificate-head, .certificate-main { position: relative; z-index: 1; }
+    .certificate-head { text-align: center; margin-bottom: 8mm; min-height: 18mm; position: relative; }
+    .certificate-head h1 { margin: 0; font-size: 12mm; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cert-heading, #113d72); }
+    .certificate-logo {
+      position: absolute;
+      top: 0;
+      width: 20mm;
+      height: 20mm;
+      object-fit: contain;
+    }
+    .certificate-logo--left { left: 0; }
+    .certificate-logo--right { right: 0; }
+    .certificate-name { margin: 0; text-align: center; font-size: 9mm; font-weight: 700; color: var(--cert-name, #0f2f57); }
+    .certificate-meta { margin: 2mm 0 3mm; text-align: center; font-size: 4mm; color: #2d4f79; }
+    .certificate-dsa { margin: 0 auto 5mm; max-width: 160mm; text-align: center; font-size: 4.2mm; line-height: 1.45; }
+    .certificate-main h2 { margin: 0 0 3mm; font-size: 5mm; color: var(--cert-heading, #113d72); }
+    .certificate-performance-list { margin: 0; padding-left: 6mm; display: grid; gap: 1.6mm; font-size: 3.8mm; line-height: 1.35; }
+    .certificate-empty { margin: 0; font-size: 4mm; color: #516a8c; }
+    .design-1 { --cert-border: #305f93; --cert-heading: #113d72; --cert-name: #0f2f57; --cert-glow: rgba(37, 99, 235, 0.08); }
+    .design-2 { --cert-border: #1f7a58; --cert-heading: #12513b; --cert-name: #0c4030; --cert-glow: rgba(15, 118, 110, 0.12); }
+    .design-3 { --cert-border: #925b13; --cert-heading: #6f430b; --cert-name: #583100; --cert-glow: rgba(202, 138, 4, 0.16); }
+    .design-4 { --cert-border: #7a2f2f; --cert-heading: #5a1f1f; --cert-name: #461414; --cert-glow: rgba(220, 38, 38, 0.1); }
+    .design-5 { --cert-border: #4b3c8e; --cert-heading: #372b6f; --cert-name: #281f57; --cert-glow: rgba(99, 102, 241, 0.14); }
+    .design-6 { --cert-border: #0f6e77; --cert-heading: #0a5560; --cert-name: #063f46; --cert-glow: rgba(6, 182, 212, 0.12); }
+    .design-7 { --cert-border: #7d3d66; --cert-heading: #612e4f; --cert-name: #4e233f; --cert-glow: rgba(190, 24, 93, 0.12); }
+    .design-8 { --cert-border: #2f5c79; --cert-heading: #20455d; --cert-name: #183449; --cert-glow: rgba(59, 130, 246, 0.12); }
+    .design-9 { --cert-border: #586214; --cert-heading: #444c0e; --cert-name: #343a0a; --cert-glow: rgba(132, 204, 22, 0.16); }
+    .design-10 { --cert-border: #5a4742; --cert-heading: #42332f; --cert-name: #312420; --cert-glow: rgba(120, 113, 108, 0.14); }
+  </style>
+</head>
+<body>
+  ${pagesHtml}
+</body>
+</html>
+  `.trim();
+
+  return {
+    ok: true,
+    html,
+    athleteCount: athletes.length
+  };
+}
+
+function openCertificatePrintView({ autoPrint = false } = {}) {
+  const result = buildCertificatePrintDocument();
+  if (!result.ok) {
+    showToast(result.message || "Druckansicht konnte nicht erstellt werden.");
+    return;
+  }
+
+  const printWindow = window.open("", "_blank", "noopener,noreferrer");
+  if (!printWindow) {
+    showToast("Pop-up blockiert. Bitte Pop-ups erlauben.");
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(result.html);
+  printWindow.document.close();
+
+  if (autoPrint) {
+    setTimeout(() => {
+      try {
+        printWindow.focus();
+        printWindow.print();
+      } catch (_error) {
+        // Ignore browser print API errors.
+      }
+    }, 180);
+  }
+
+  showToast(`Druckansicht erstellt (${result.athleteCount} Athleten).`);
 }
 
 function getScopedExportAthletes() {
@@ -2306,6 +6557,11 @@ function runSelectedExport() {
     return;
   }
 
+  if (format === "appleCsv") {
+    exportAppleSportabzeichenCsv();
+    return;
+  }
+
   if (format === "flowText") {
     exportFlowTextDataset();
     return;
@@ -2319,7 +6575,7 @@ function updateImportGroupInputState() {
     return;
   }
 
-  const shouldShow = state.importDetectedType === "simple" && !!importCreateGroupCheckbox.checked;
+  const shouldShow = !!importFileInput?.files?.length && !!importCreateGroupCheckbox.checked;
   importGroupSelectWrap.hidden = !shouldShow;
   importGroupSelect.disabled = !shouldShow;
   if (!shouldShow) {
@@ -2352,7 +6608,7 @@ function createCsvHeaderIndexMap(headerRow) {
   return headerMap;
 }
 
-function findCsvHeaderIndexByAliases(headerMap, aliases) {
+function findCsvHeaderIndexByAliases(headerMap, aliases, { allowFuzzy = true } = {}) {
   if (!(headerMap instanceof Map) || !Array.isArray(aliases) || aliases.length === 0) {
     return -1;
   }
@@ -2364,6 +6620,10 @@ function findCsvHeaderIndexByAliases(headerMap, aliases) {
     }
 
     return headerMap.get(alias);
+  }
+
+  if (!allowFuzzy) {
+    return -1;
   }
 
   let bestIndex = -1;
@@ -2403,6 +6663,15 @@ function getCsvValueByAliases(row, headerMap, aliases) {
   return normalizeText(row[index]);
 }
 
+function getCsvValueByAliasesStrict(row, headerMap, aliases) {
+  const index = findCsvHeaderIndexByAliases(headerMap, aliases, { allowFuzzy: false });
+  if (index < 0) {
+    return "";
+  }
+
+  return normalizeText(row[index]);
+}
+
 function isCsvRowEmpty(row) {
   if (!Array.isArray(row) || row.length === 0) {
     return true;
@@ -2420,6 +6689,10 @@ function findCsvHeaderRowIndex(rows) {
     }
 
     const headerMap = createCsvHeaderIndexMap(row);
+    if (detectCsvImportType(headerMap) === "applePerformance") {
+      return index;
+    }
+
     const hasName = hasCsvHeaderByAliases(headerMap, CSV_IMPORT_ALIASES.firstName);
     const hasLastName = hasCsvHeaderByAliases(headerMap, CSV_IMPORT_ALIASES.lastName);
     const hasBirthDate = hasCsvHeaderByAliases(headerMap, CSV_IMPORT_ALIASES.birthDate);
@@ -2434,6 +6707,20 @@ function findCsvHeaderRowIndex(rows) {
 }
 
 function detectCsvImportType(headerMap) {
+  const isApplePerformanceCsv =
+    hasCsvHeaderByAliases(headerMap, ["externe id"]) &&
+    hasCsvHeaderByAliases(headerMap, ["name"]) &&
+    hasCsvHeaderByAliases(headerMap, ["vorname"]) &&
+    hasCsvHeaderByAliases(headerMap, ["geschlecht"]) &&
+    hasCsvHeaderByAliases(headerMap, ["ubung", "übung"]) &&
+    hasCsvHeaderByAliases(headerMap, ["kategorie"]) &&
+    hasCsvHeaderByAliases(headerMap, ["datum"]) &&
+    hasCsvHeaderByAliases(headerMap, ["ergebnis"]);
+
+  if (isApplePerformanceCsv) {
+    return "applePerformance";
+  }
+
   const hasBasicAthleteColumns =
     hasCsvHeaderByAliases(headerMap, CSV_IMPORT_ALIASES.firstName) &&
     hasCsvHeaderByAliases(headerMap, CSV_IMPORT_ALIASES.lastName) &&
@@ -2562,8 +6849,10 @@ function createCsvRecordFromRow(row, headerMap) {
     title: getCsvValueByAliases(row, headerMap, CSV_IMPORT_ALIASES.title),
     street: getCsvValueByAliases(row, headerMap, CSV_IMPORT_ALIASES.street),
     email: getCsvValueByAliases(row, headerMap, CSV_IMPORT_ALIASES.email),
+    emergencyEmails: getCsvValueByAliases(row, headerMap, CSV_IMPORT_ALIASES.emergencyEmails),
+    emergencyPhones: getCsvValueByAliases(row, headerMap, CSV_IMPORT_ALIASES.emergencyPhones),
     disabilityClass: getCsvValueByAliases(row, headerMap, CSV_IMPORT_ALIASES.disabilityClass),
-    groupName: getCsvValueByAliases(row, headerMap, CSV_IMPORT_ALIASES.groupName),
+    groupName: getCsvValueByAliasesStrict(row, headerMap, CSV_IMPORT_ALIASES.groupName),
     ausdauerCode: getCsvValueByAliases(row, headerMap, CSV_IMPORT_ALIASES.ausdauerCode),
     ausdauerValue: getCsvValueByAliases(row, headerMap, CSV_IMPORT_ALIASES.ausdauerValue),
     kraftCode: getCsvValueByAliases(row, headerMap, CSV_IMPORT_ALIASES.kraftCode),
@@ -2729,6 +7018,15 @@ function upsertImportedAthlete(importedAthlete, options = {}) {
   existingAthlete.zip = normalizedAthlete.zip || existingAthlete.zip;
   existingAthlete.city = normalizedAthlete.city || existingAthlete.city;
   existingAthlete.country = normalizedAthlete.country || existingAthlete.country;
+  existingAthlete.email = normalizedAthlete.email || existingAthlete.email;
+  existingAthlete.emergencyEmails = normalizeEmergencyEmailList([
+    ...(Array.isArray(existingAthlete.emergencyEmails) ? existingAthlete.emergencyEmails : []),
+    ...(Array.isArray(normalizedAthlete.emergencyEmails) ? normalizedAthlete.emergencyEmails : [])
+  ]);
+  existingAthlete.emergencyPhones = normalizeEmergencyPhoneList([
+    ...(Array.isArray(existingAthlete.emergencyPhones) ? existingAthlete.emergencyPhones : []),
+    ...(Array.isArray(normalizedAthlete.emergencyPhones) ? normalizedAthlete.emergencyPhones : [])
+  ]);
   existingAthlete.associationBadgeId = normalizedAthlete.associationBadgeId || existingAthlete.associationBadgeId;
   existingAthlete.associationBadgeLevel = normalizedAthlete.associationBadgeLevel || existingAthlete.associationBadgeLevel;
   existingAthlete.swimProofYear = normalizedAthlete.swimProofYear || existingAthlete.swimProofYear;
@@ -2779,6 +7077,38 @@ function ensureGroupByName(groupName) {
 
   state.groups.push(createdGroup);
   return createdGroup;
+}
+
+function resolveImportTargetGroup(options = {}) {
+  const assignToGroup = !!options.assignToGroup;
+  if (!assignToGroup) {
+    return {
+      group: null,
+      created: false
+    };
+  }
+
+  const groupSelection = normalizeText(options.groupSelection);
+  if (groupSelection && groupSelection !== "__new_from_file__") {
+    return {
+      group: getGroupById(groupSelection),
+      created: false
+    };
+  }
+
+  const preferredGroupName = getSafeImportGroupName(options.fileName);
+  const existingGroup = getGroupByName(preferredGroupName);
+  if (existingGroup) {
+    return {
+      group: existingGroup,
+      created: false
+    };
+  }
+
+  return {
+    group: ensureGroupByName(preferredGroupName),
+    created: true
+  };
 }
 
 function addAthleteToGroup(group, athleteId) {
@@ -2992,6 +7322,224 @@ function applyDigitalPerformanceImportToAthlete(athlete, csvRecord, measuredAtIs
   return importedCount;
 }
 
+function normalizeAppleCategoryName(rawValue) {
+  const normalized = normalizeText(rawValue);
+  if (!normalized) {
+    return "";
+  }
+
+  const token = normalizeCsvToken(normalized);
+  if (token === "ausdauer") {
+    return "Ausdauer";
+  }
+  if (token === "schnelligkeit") {
+    return "Schnelligkeit";
+  }
+  if (token === "kraft") {
+    return "Kraft";
+  }
+  if (token === "koordination") {
+    return "Koordination";
+  }
+
+  return normalized;
+}
+
+function buildAppleDisciplineMatchToken(value) {
+  return normalizeCsvToken(value)
+    .replace(/grundsprungvorwarts/g, "grundsprungvorwaerts")
+    .replace(/ruckwarts/g, "rueckwaerts")
+    .replace(/galoppschritt/g, "galoppschritt");
+}
+
+function findRuleForApplePerformanceImport(athlete, categoryName, exerciseName) {
+  const requirementGroup = getRequirementGroupForAthlete(athlete);
+  if (!requirementGroup || !Array.isArray(requirementGroup.disciplines)) {
+    return null;
+  }
+
+  const normalizedCategory = normalizeAppleCategoryName(categoryName);
+  const targetToken = buildAppleDisciplineMatchToken(exerciseName);
+  if (!targetToken) {
+    return null;
+  }
+
+  const candidates = [];
+  for (const rule of requirementGroup.disciplines) {
+    if (normalizeText(rule.category) !== normalizedCategory) {
+      continue;
+    }
+
+    const labelParts = splitDisciplineDisplay(rule);
+    const variants = [
+      normalizeText(rule.disciplineName),
+      normalizeText(rule.disciplineBaseName),
+      normalizeText(labelParts.title),
+      normalizeText(labelParts.detail),
+      `${normalizeText(labelParts.title)} ${normalizeText(labelParts.detail)}`.trim()
+    ].filter(Boolean);
+
+    let bestScore = 0;
+    for (const variant of variants) {
+      const variantToken = buildAppleDisciplineMatchToken(variant);
+      if (!variantToken) {
+        continue;
+      }
+
+      if (variantToken === targetToken) {
+        bestScore = Math.max(bestScore, 1000);
+        continue;
+      }
+
+      if (variantToken.includes(targetToken) || targetToken.includes(variantToken)) {
+        bestScore = Math.max(bestScore, Math.min(variantToken.length, targetToken.length));
+      }
+    }
+
+    if (bestScore > 0) {
+      candidates.push({ rule, score: bestScore });
+    }
+  }
+
+  candidates.sort((left, right) => right.score - left.score || left.rule.disciplineName.localeCompare(right.rule.disciplineName, "de"));
+  return candidates[0]?.rule || null;
+}
+
+function formatAppleCsvResultValue(rule, entry) {
+  const rawInput = normalizeText(entry?.valueInput);
+  if (rawInput) {
+    return rawInput;
+  }
+
+  return formatNormalizedValue(rule, entry?.valueNormalized, "")
+    .replace(/\s*s$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatAppleCsvDateValue(dateValue) {
+  const parsed = dateValue ? new Date(dateValue) : null;
+  if (!parsed || Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return `${String(parsed.getDate()).padStart(2, "0")}.${String(parsed.getMonth() + 1).padStart(2, "0")}.${parsed.getFullYear()}`;
+}
+
+function importApplePerformanceToAthlete(athlete, csvRecord) {
+  const rule = findRuleForApplePerformanceImport(athlete, csvRecord.category, csvRecord.exercise);
+  if (!rule) {
+    return false;
+  }
+
+  const parsedPerformance = parsePerformanceValue(rule, csvRecord.result);
+  if (!parsedPerformance.ok) {
+    return false;
+  }
+
+  const isoDate = parseAppleCsvDate(csvRecord.date);
+  const measuredAtIso = isoDate ? new Date(`${isoDate}T12:00:00`).toISOString() : new Date().toISOString();
+  return appendImportedPerformanceEntry(athlete, getRuleStorageKey(rule), {
+    id: createId(),
+    valueInput: parsedPerformance.valueInput,
+    valueNormalized: parsedPerformance.normalizedValue,
+    measuredAt: measuredAtIso,
+    meta: {
+      importedFrom: "sportabzeichen-app-ios",
+      category: normalizeAppleCategoryName(csvRecord.category),
+      exercise: normalizeText(csvRecord.exercise),
+      points: normalizeText(csvRecord.points),
+      dbs: normalizeText(csvRecord.dbs)
+    },
+    createdAt: measuredAtIso,
+    updatedAt: measuredAtIso
+  });
+}
+
+function buildAppleSportabzeichenCsvRows(athletesForExport = state.athletes) {
+  const rows = [["Externe ID", "Name", "Vorname", "Geschlecht", "Geburtsjahr", "Geburtstag", "Übung", "Kategorie", "Datum", "Ergebnis", "Punkte", "DBS"]];
+  const sortedAthletes = getSortedAthletesByDisplayName(athletesForExport || []);
+  let includedCount = 0;
+  let athleteCount = 0;
+
+  for (const athlete of sortedAthletes) {
+    const requirementGroup = getRequirementGroupForAthlete(athlete);
+    if (!requirementGroup) {
+      continue;
+    }
+
+    let athleteIncluded = false;
+    const groupedDisciplines = getRenderableDisciplineGroups(athlete, requirementGroup);
+    for (const categoryGroup of groupedDisciplines) {
+      for (const descriptor of categoryGroup.disciplines) {
+        if (descriptor.kind !== "standard") {
+          continue;
+        }
+
+        const entries = getPerformanceEntries(athlete, descriptor.storageKey)
+          .slice()
+          .sort((left, right) => new Date(left.measuredAt).getTime() - new Date(right.measuredAt).getTime());
+
+        for (const entry of entries) {
+          const level = evaluatePerformanceLevel(descriptor, entry.valueNormalized);
+          rows.push([
+            normalizeText(athlete.dsaId),
+            normalizeText(athlete.lastName),
+            normalizeText(athlete.firstName),
+            normalizeText(athlete.gender),
+            extractBirthYear(athlete.birthDate),
+            isFullBirthDateValue(athlete.birthDate) ? formatAppleCsvDateValue(athlete.birthDate) : "",
+            normalizeText(descriptor.disciplineName),
+            normalizeText(descriptor.category),
+            formatAppleCsvDateValue(entry.measuredAt),
+            formatAppleCsvResultValue(descriptor, entry),
+            LEVEL_POINTS[level] || "",
+            "Nein"
+          ]);
+          includedCount += 1;
+          athleteIncluded = true;
+        }
+      }
+    }
+
+    if (athleteIncluded) {
+      athleteCount += 1;
+    }
+  }
+
+  return {
+    rows,
+    includedCount,
+    athleteCount
+  };
+}
+
+function exportAppleSportabzeichenCsv() {
+  const exportAthletes = getScopedExportAthletes();
+  if (exportAthletes.length === 0) {
+    showToast("Keine Athleten fuer den gewaehlten Exportumfang vorhanden.");
+    return;
+  }
+
+  const exportResult = buildAppleSportabzeichenCsvRows(exportAthletes);
+  if (exportResult.includedCount <= 0) {
+    showToast("Export abgebrochen: Keine Leistungen fuer das Apple-Format vorhanden.");
+    return;
+  }
+
+  const scopeLabel = getExportScopeLabel();
+  const confirmed = window.confirm(`Apple-CSV-Export fuer ${exportResult.athleteCount} Athleten mit ${exportResult.includedCount} Eintraegen (${scopeLabel}) erstellen?`);
+  if (!confirmed) {
+    return;
+  }
+
+  const timestamp = formatDateForFilename();
+  const fileName = `sportabzeichen-app-ios-export-${timestamp}.csv`;
+  const content = serializeCsvRows(exportResult.rows, ";");
+  downloadTextFile(fileName, content, { mimeType: "text/csv;charset=utf-8", withBom: true });
+  showToast(`Apple-CSV-Export mit ${exportResult.includedCount} Eintraegen erstellt.`);
+}
+
 function createAthleteDraftFromCsvRecord(csvRecord, importType) {
   const firstName = normalizeText(csvRecord.firstName);
   const lastName = normalizeText(csvRecord.lastName);
@@ -3015,6 +7563,9 @@ function createAthleteDraftFromCsvRecord(csvRecord, importType) {
     gender: normalizeImportedGender(genderRaw),
     birthDate,
     dsaId: normalizeText(csvRecord.dsaId),
+    email: normalizeText(csvRecord.email),
+    emergencyEmails: normalizeEmergencyEmailList(csvRecord.emergencyEmails),
+    emergencyPhones: normalizeEmergencyPhoneList(csvRecord.emergencyPhones),
     zip,
     city,
     country,
@@ -3053,7 +7604,7 @@ function parseFullImportPayload(payload) {
   };
 }
 
-function importFromFullPayload(payload, { sourceLabel = "Vollimport" } = {}) {
+function importFromFullPayload(payload, { sourceLabel = "Vollimport", assignToGroup = false, groupSelection = "", fileName = "" } = {}) {
   const parsedPayload = parseFullImportPayload(payload);
   const importedAthletes = parsedPayload.athletes.map((entry) => normalizeAthleteRecord(entry));
   const importedGroups = parsedPayload.groups.map((entry) => normalizeGroupRecord(entry)).filter((entry) => !!entry && !!entry.name);
@@ -3063,6 +7614,11 @@ function importFromFullPayload(payload, { sourceLabel = "Vollimport" } = {}) {
   let createdGroups = 0;
   let groupAssignments = 0;
   const athleteIdMap = new Map();
+  const resolvedImportGroup = resolveImportTargetGroup({ assignToGroup, groupSelection, fileName });
+
+  if (resolvedImportGroup.created && resolvedImportGroup.group) {
+    createdGroups += 1;
+  }
 
   for (const importedAthlete of importedAthletes) {
     const originalId = importedAthlete.id;
@@ -3075,6 +7631,10 @@ function importFromFullPayload(payload, { sourceLabel = "Vollimport" } = {}) {
       createdAthletes += 1;
     } else {
       updatedAthletes += 1;
+    }
+
+    if (resolvedImportGroup.group && addAthleteToGroup(resolvedImportGroup.group, result.athlete.id)) {
+      groupAssignments += 1;
     }
   }
 
@@ -3130,15 +7690,17 @@ function importFromCsvRows(rows, options = {}) {
     };
   }
 
-  const simpleAssignToGroup = importType === "simple" && !!options.simpleAssignToGroup;
-  const simpleGroupSelection = normalizeText(options.simpleGroupSelection);
-  const preferredGroupName = getSafeImportGroupName(options.fileName);
-  const hadDefaultGroupBeforeImport = simpleAssignToGroup ? !!getGroupByName(preferredGroupName) : false;
-  let defaultGroup = null;
+  const assignToGroup = !!options.assignToGroup;
+  const resolvedImportGroup = resolveImportTargetGroup({
+    assignToGroup,
+    groupSelection: options.groupSelection,
+    fileName: options.fileName
+  });
+  let defaultGroup = resolvedImportGroup.group;
 
   let createdAthletes = 0;
   let updatedAthletes = 0;
-  let createdGroups = 0;
+  let createdGroups = resolvedImportGroup.created && resolvedImportGroup.group ? 1 : 0;
   let groupAssignments = 0;
   let importedPerformances = 0;
   let skippedRows = 0;
@@ -3146,6 +7708,30 @@ function importFromCsvRows(rows, options = {}) {
   for (let rowIndex = headerRowIndex + 1; rowIndex < rows.length; rowIndex += 1) {
     const row = rows[rowIndex];
     if (isCsvRowEmpty(row)) {
+      continue;
+    }
+
+    if (importType === "applePerformance") {
+      const appleRecord = createAppleCsvRecordFromRow(row, headerMap);
+      const athleteDraft = createAppleAthleteDraftFromCsvRecord(appleRecord);
+      if (!athleteDraft) {
+        skippedRows += 1;
+        continue;
+      }
+
+      const upsertResult = upsertImportedAthlete(athleteDraft);
+      if (upsertResult.created) {
+        createdAthletes += 1;
+      } else {
+        updatedAthletes += 1;
+      }
+
+      if (importApplePerformanceToAthlete(upsertResult.athlete, appleRecord)) {
+        importedPerformances += 1;
+      }
+      if (defaultGroup && addAthleteToGroup(defaultGroup, upsertResult.athlete.id)) {
+        groupAssignments += 1;
+      }
       continue;
     }
 
@@ -3169,29 +7755,12 @@ function importFromCsvRows(rows, options = {}) {
     }
 
     const rowGroupName = importType === "simple" ? "" : normalizeText(csvRecord.groupName);
-    let targetGroup = null;
+    let targetGroup = defaultGroup;
     if (rowGroupName) {
       const existingByName = getGroupByName(rowGroupName);
       targetGroup = existingByName || ensureGroupByName(rowGroupName);
       if (!existingByName && targetGroup) {
         createdGroups += 1;
-      }
-    } else {
-      if (simpleAssignToGroup) {
-        if (!defaultGroup) {
-          if (simpleGroupSelection && simpleGroupSelection !== "__new_from_file__") {
-            defaultGroup = getGroupById(simpleGroupSelection);
-          }
-
-          if (!defaultGroup) {
-            defaultGroup = ensureGroupByName(preferredGroupName);
-            if (defaultGroup && !hadDefaultGroupBeforeImport) {
-              createdGroups += 1;
-            }
-          }
-        }
-
-        targetGroup = defaultGroup;
       }
     }
 
@@ -3233,7 +7802,10 @@ function importDataFromText(fileContent, options = {}) {
     try {
       const payload = JSON.parse(trimmedContent);
       return importFromFullPayload(payload, {
-        sourceLabel: "Vollimport"
+        sourceLabel: "Vollimport",
+        assignToGroup: options.assignToGroup,
+        groupSelection: options.groupSelection,
+        fileName: options.fileName
       });
     } catch (_error) {
       // Continue with CSV parsing fallback.
@@ -3257,28 +7829,48 @@ async function runImportFromSelectedFile() {
     return;
   }
 
-  const file = importFileInput.files[0];
-  let content = "";
+  const files = Array.from(importFileInput.files);
+  let createdAthletes = 0;
+  let updatedAthletes = 0;
+  let createdGroups = 0;
+  let groupAssignments = 0;
+  let importedPerformances = 0;
+  let skippedRows = 0;
+  const failedFiles = [];
+  let successfulFiles = 0;
 
-  try {
-    content = await file.text();
-  } catch (_error) {
-    showToast("Datei konnte nicht gelesen werden.");
-    return;
+  for (const file of files) {
+    let content = "";
+
+    try {
+      content = await file.text();
+    } catch (_error) {
+      failedFiles.push(`${file.name}: Datei konnte nicht gelesen werden.`);
+      continue;
+    }
+
+    const importResult = importDataFromText(content, {
+      fileName: file.name,
+      assignToGroup: !!importCreateGroupCheckbox?.checked,
+      groupSelection: normalizeText(importGroupSelect?.value) || "__new_from_file__"
+    });
+
+    if (!importResult.ok) {
+      failedFiles.push(`${file.name}: ${importResult.message || "Import fehlgeschlagen."}`);
+      continue;
+    }
+
+    successfulFiles += 1;
+    createdAthletes += Number(importResult.createdAthletes || 0);
+    updatedAthletes += Number(importResult.updatedAthletes || 0);
+    createdGroups += Number(importResult.createdGroups || 0);
+    groupAssignments += Number(importResult.groupAssignments || 0);
+    importedPerformances += Number(importResult.importedPerformances || 0);
+    skippedRows += Number(importResult.skippedRows || 0);
   }
 
-  const quickDetection = detectImportTypeFromText(content);
-  updateImportDetectedState(quickDetection.type, file.name, quickDetection.message);
-  renderImportControlsState();
-
-  const importResult = importDataFromText(content, {
-    fileName: file.name,
-    simpleAssignToGroup: state.importDetectedType === "simple" && !!importCreateGroupCheckbox?.checked,
-    simpleGroupSelection: normalizeText(importGroupSelect?.value) || "__new_from_file__"
-  });
-
-  if (!importResult.ok) {
-    showToast(importResult.message || "Import fehlgeschlagen.");
+  if (successfulFiles === 0) {
+    showToast(failedFiles[0] || "Import fehlgeschlagen.");
     return;
   }
 
@@ -3291,18 +7883,29 @@ async function runImportFromSelectedFile() {
   refreshAthleteViews();
 
   importFileInput.value = "";
+  state.importPreviewItems = [];
+  state.importHasSimpleFile = false;
   updateImportDetectedState("", "", "Noch keine Datei ausgewaehlt.");
   renderImportControlsState();
 
-  const updatedCount = importResult.createdAthletes + importResult.updatedAthletes;
+  const updatedCount = createdAthletes + updatedAthletes;
   const summary = [
+    `${successfulFiles} Datei${successfulFiles === 1 ? "" : "en"}`,
     `${updatedCount} Athlet${updatedCount === 1 ? "" : "en"}`,
-    `${importResult.createdGroups} Gruppe${importResult.createdGroups === 1 ? "" : "n"} neu`,
-    `${importResult.importedPerformances} Leistungen`
+    `${createdGroups} Gruppe${createdGroups === 1 ? "" : "n"} neu`,
+    `${importedPerformances} Leistungen`
   ];
 
-  if (importResult.skippedRows > 0) {
-    summary.push(`${importResult.skippedRows} Zeilen uebersprungen`);
+  if (groupAssignments > 0) {
+    summary.push(`${groupAssignments} Gruppenzuordnungen`);
+  }
+
+  if (skippedRows > 0) {
+    summary.push(`${skippedRows} Zeilen uebersprungen`);
+  }
+
+  if (failedFiles.length > 0) {
+    summary.push(`${failedFiles.length} Datei${failedFiles.length === 1 ? "" : "en"} fehlgeschlagen`);
   }
 
   showToast(`Import abgeschlossen: ${summary.join(" | ")}`);
@@ -3489,6 +8092,9 @@ function setRequirementsInspectorOpen(isOpen) {
 
 function refreshAthleteViews() {
   ensureDefaultGroupFilterSelection();
+  if (pruneTrainingDailyInactiveAthleteIds()) {
+    saveTrainingState();
+  }
   renderGroupFilters();
   renderAthletes();
   renderAthleteDetail();
@@ -3852,7 +8458,7 @@ function normalizeTrainingMarkedAthleteIds({ visibleOnly = false } = {}) {
     new Set(
       originalIds
         .map((athleteId) => normalizeText(athleteId))
-        .filter((athleteId) => !!athleteId && validAthleteIds.has(athleteId))
+        .filter((athleteId) => !!athleteId && validAthleteIds.has(athleteId) && isAthleteActiveForToday(athleteId))
     )
   );
 
@@ -3886,6 +8492,11 @@ function toggleTrainingAthleteMarked(athleteId) {
     return;
   }
 
+  if (!isAthleteActiveForToday(normalizedAthleteId)) {
+    showToast("Athlet ist fuer heute deaktiviert.");
+    return;
+  }
+
   const markedIds = getTrainingMarkedAthleteIdSet();
   if (markedIds.has(normalizedAthleteId)) {
     markedIds.delete(normalizedAthleteId);
@@ -3904,9 +8515,9 @@ function markAllVisibleTrainingAthletes() {
   const selectedDiscipline = getSelectedTrainingDiscipline();
   const markableAthleteIds = selectedDiscipline
     ? getTrainingAthleteRows(selectedDiscipline.id)
-        .filter((row) => !!row.rule)
+        .filter((row) => !!row.rule && row.isActiveToday)
         .map((row) => row.athlete.id)
-    : getVisibleAthletes().map((athlete) => athlete.id);
+    : getVisibleAthletes().filter((athlete) => isAthleteActiveForToday(athlete.id)).map((athlete) => athlete.id);
 
   state.trainingMarkedAthleteIds = Array.from(new Set(markableAthleteIds));
   saveTrainingState();
@@ -3965,6 +8576,10 @@ function startTrainingTimersForAthleteIds(selectedDiscipline, athleteIds, { shar
   for (const athleteId of uniqueAthleteIds) {
     const athlete = state.athletes.find((entry) => entry.id === athleteId) || null;
     if (!athlete) {
+      continue;
+    }
+
+    if (!isAthleteActiveForToday(athleteId)) {
       continue;
     }
 
@@ -4174,86 +8789,6 @@ function handleTrainingExamHotkeys(event) {
   if ((athleteModal && !athleteModal.hidden) || (groupModal && !groupModal.hidden) || (performanceModal && !performanceModal.hidden)) {
     return;
   }
-
-  const selectedDiscipline = getSelectedTrainingDiscipline();
-  if (!selectedDiscipline || !["time_mm_ss", "time_seconds"].includes(selectedDiscipline.unitType)) {
-    return;
-  }
-
-  const key = normalizeText(event.key).toLowerCase();
-  const hasCtrlMeta = !!event.ctrlKey || !!event.metaKey;
-
-  if (event.altKey && !hasCtrlMeta && !event.shiftKey && /^[1-9]$/.test(key)) {
-    const runningAthleteIdSet = new Set(getRunningTrainingAthleteIds(selectedDiscipline));
-    const runningAthleteIdsInViewOrder = getTrainingAthleteRows(selectedDiscipline.id)
-      .map((row) => row.athlete.id)
-      .filter((athleteId) => runningAthleteIdSet.has(athleteId));
-
-    const targetAthleteId = runningAthleteIdsInViewOrder[Number(key) - 1] || "";
-    if (!targetAthleteId) {
-      return;
-    }
-
-    event.preventDefault();
-    stopTrainingAthleteTiming(targetAthleteId);
-    return;
-  }
-
-  if (!event.shiftKey || event.altKey || hasCtrlMeta) {
-    return;
-  }
-
-  const runningAthleteIds = getRunningTrainingAthleteIds(selectedDiscipline);
-  const runningAthleteIdSet = new Set(runningAthleteIds);
-  const markedAthleteIds = Array.from(getTrainingMarkedAthleteIdSet());
-  const runningMarkedAthleteIds = markedAthleteIds.filter((athleteId) => runningAthleteIdSet.has(athleteId));
-
-  if (key === "s") {
-    event.preventDefault();
-    if (markedAthleteIds.length > 0) {
-      startTrainingMarkedTiming();
-    } else {
-      startTrainingGlobalTiming();
-    }
-    return;
-  }
-
-  if (key === "x") {
-    event.preventDefault();
-    if (runningMarkedAthleteIds.length > 0) {
-      stopTrainingMarkedTiming();
-    } else {
-      stopTrainingGlobalTiming();
-    }
-    return;
-  }
-
-  if (key === "a") {
-    event.preventDefault();
-    if (runningMarkedAthleteIds.length > 0) {
-      abortTrainingMarkedTiming();
-    } else {
-      abortTrainingGlobalTiming();
-    }
-    return;
-  }
-
-  if (key === "m") {
-    event.preventDefault();
-    markRunningVisibleTrainingAthletes();
-    return;
-  }
-
-  if (key === "l") {
-    event.preventDefault();
-    markAllVisibleTrainingAthletes();
-    return;
-  }
-
-  if (key === "u") {
-    event.preventDefault();
-    clearVisibleTrainingAthleteMarks();
-  }
 }
 
 function getTrainingDisciplineIdFromRule(rule) {
@@ -4262,15 +8797,15 @@ function getTrainingDisciplineIdFromRule(rule) {
   }
 
   const category = normalizeText(rule.category);
-  const disciplineKey = normalizeText(rule.disciplineKey || rule.disciplineName || rule.ruleId);
-  const catalogCode = normalizeText(rule.catalogCode || rule.disciplineCode || "");
+  const labelParts = splitDisciplineDisplay(rule);
+  const disciplineKey = normalizeText(labelParts.title || rule.disciplineBaseName || rule.disciplineName || rule.disciplineKey || rule.ruleId);
   const unitType = normalizeText(rule.unitType || "number");
 
   if (!category || !disciplineKey || !unitType) {
     return "";
   }
 
-  return `${category}|${disciplineKey}|${catalogCode}|${unitType}`;
+  return `${category}|${disciplineKey}|${unitType}`;
 }
 
 function getTrainingUnitTypeLabel(unitType) {
@@ -4297,19 +8832,59 @@ function getTrainingDisciplineCatalog() {
     const groupDisciplines = Array.isArray(requirementGroup?.disciplines) ? requirementGroup.disciplines : [];
     for (const rule of groupDisciplines) {
       const disciplineId = getTrainingDisciplineIdFromRule(rule);
-      if (!disciplineId || byId.has(disciplineId)) {
+      if (!disciplineId) {
         continue;
       }
 
       const labelParts = splitDisciplineDisplay(rule);
+      const variantText = resolveTrainingExecutionText(rule);
+
+      if (!byId.has(disciplineId)) {
+        byId.set(disciplineId, {
+          id: disciplineId,
+          category: normalizeText(rule.category) || "Weitere",
+          disciplineName: normalizeText(rule.disciplineName) || "Unbekannte Disziplin",
+          title: labelParts.title,
+          detail: "",
+          unitType: normalizeText(rule.unitType || "number"),
+          variants: new Set(),
+          variantPreview: ""
+        });
+      }
+
+      const existing = byId.get(disciplineId);
+      if (variantText && variantText !== "-") {
+        existing.variants.add(variantText);
+      }
+    }
+  }
+
+  for (const rule of getAllCustomDisciplineRules()) {
+    const disciplineId = getTrainingDisciplineIdFromRule(rule);
+    if (!disciplineId) {
+      continue;
+    }
+
+    const labelParts = splitDisciplineDisplay(rule);
+    const variantText = resolveTrainingExecutionText(rule);
+
+    if (!byId.has(disciplineId)) {
       byId.set(disciplineId, {
         id: disciplineId,
-        category: normalizeText(rule.category) || "Weitere",
-        disciplineName: normalizeText(rule.disciplineName) || "Unbekannte Disziplin",
+        category: "Eigene Disziplinen",
+        disciplineName: normalizeText(rule.disciplineName) || "Eigene Disziplin",
         title: labelParts.title,
-        detail: labelParts.detail,
-        unitType: normalizeText(rule.unitType || "number")
+        detail: "",
+        unitType: normalizeText(rule.unitType || "number"),
+        variants: new Set(),
+        variantPreview: "",
+        customDisciplineId: normalizeText(rule.customDisciplineId)
       });
+    }
+
+    const existing = byId.get(disciplineId);
+    if (variantText && variantText !== "-") {
+      existing.variants.add(variantText);
     }
   }
 
@@ -4318,7 +8893,19 @@ function getTrainingDisciplineCatalog() {
     return index >= 0 ? index : CATEGORY_ORDER.length + 1;
   };
 
-  return Array.from(byId.values()).sort((left, right) => {
+  const catalog = Array.from(byId.values())
+    .map((entry) => {
+      const variants = Array.from(entry.variants || []);
+      const variantPreview = variants.slice(0, 2).join(" | ");
+      return {
+        ...entry,
+        variants,
+        variantCount: variants.length,
+        variantPreview,
+        detail: variants.length <= 1 ? variantPreview : ""
+      };
+    })
+    .sort((left, right) => {
     const byCategory = categoryRank(left.category) - categoryRank(right.category);
     if (byCategory !== 0) {
       return byCategory;
@@ -4331,6 +8918,8 @@ function getTrainingDisciplineCatalog() {
 
     return normalizeText(left.disciplineName).localeCompare(normalizeText(right.disciplineName), "de");
   });
+
+  return catalog;
 }
 
 function ensureTrainingDisciplineSelection(catalog = getTrainingDisciplineCatalog()) {
@@ -4356,9 +8945,207 @@ function getSelectedTrainingDiscipline(catalog = getTrainingDisciplineCatalog())
   return catalog.find((discipline) => discipline.id === state.trainingSelectedDisciplineId) || null;
 }
 
+function normalizeTrainingSelectedExecutionMap(rawValue) {
+  if (!rawValue || typeof rawValue !== "object") {
+    return {};
+  }
+
+  const normalized = {};
+  for (const [rawDisciplineId, rawExecutionKey] of Object.entries(rawValue)) {
+    const disciplineId = normalizeText(rawDisciplineId);
+    const executionKey = normalizeText(rawExecutionKey);
+    if (!disciplineId || !executionKey) {
+      continue;
+    }
+
+    normalized[disciplineId] = executionKey;
+  }
+
+  return normalized;
+}
+
+function getTrainingExecutionOptionKey(rule) {
+  if (!rule) {
+    return "";
+  }
+
+  const executionText = normalizeText(resolveTrainingExecutionText(rule) || "-");
+  return executionText;
+}
+
+function getTrainingExecutionOptions(disciplineId) {
+  const normalizedDisciplineId = normalizeText(disciplineId);
+  if (!normalizedDisciplineId) {
+    return [];
+  }
+
+  const byKey = new Map();
+  for (const requirementGroup of Array.isArray(state.requirements?.groups) ? state.requirements.groups : []) {
+    const rules = Array.isArray(requirementGroup?.disciplines) ? requirementGroup.disciplines : [];
+    for (const rule of rules) {
+      if (getTrainingDisciplineIdFromRule(rule) !== normalizedDisciplineId) {
+        continue;
+      }
+
+      const key = getTrainingExecutionOptionKey(rule);
+      if (!key || byKey.has(key)) {
+        continue;
+      }
+
+      byKey.set(key, {
+        key,
+        label: resolveTrainingExecutionText(rule),
+        rule
+      });
+    }
+  }
+
+  for (const rule of getAllCustomDisciplineRules()) {
+    if (getTrainingDisciplineIdFromRule(rule) !== normalizedDisciplineId) {
+      continue;
+    }
+
+    const key = getTrainingExecutionOptionKey(rule);
+    if (!key || byKey.has(key)) {
+      continue;
+    }
+
+    byKey.set(key, {
+      key,
+      label: resolveTrainingExecutionText(rule),
+      rule
+    });
+  }
+
+  return Array.from(byKey.values()).sort((left, right) => {
+    if (left.label === "-" && right.label !== "-") {
+      return 1;
+    }
+    if (left.label !== "-" && right.label === "-") {
+      return -1;
+    }
+    return normalizeText(left.label).localeCompare(normalizeText(right.label), "de");
+  });
+}
+
+function ensureTrainingExecutionSelection(disciplineId, executionOptions = getTrainingExecutionOptions(disciplineId)) {
+  const normalizedDisciplineId = normalizeText(disciplineId);
+  if (!normalizedDisciplineId) {
+    return false;
+  }
+
+  state.trainingSelectedExecutionByDiscipline = normalizeTrainingSelectedExecutionMap(state.trainingSelectedExecutionByDiscipline);
+  const selectedExecutionKey = normalizeText(state.trainingSelectedExecutionByDiscipline[normalizedDisciplineId]);
+  const isIndividualSelected = selectedExecutionKey === TRAINING_EXECUTION_INDIVIDUAL_KEY;
+  const hasSelectedExecution = executionOptions.some((option) => option.key === selectedExecutionKey);
+
+  if (executionOptions.length <= 1) {
+    const nextExecutionKey = executionOptions[0]?.key || "";
+    if (selectedExecutionKey === nextExecutionKey) {
+      return false;
+    }
+
+    if (nextExecutionKey) {
+      state.trainingSelectedExecutionByDiscipline[normalizedDisciplineId] = nextExecutionKey;
+    } else {
+      delete state.trainingSelectedExecutionByDiscipline[normalizedDisciplineId];
+    }
+    return true;
+  }
+
+  if (hasSelectedExecution || isIndividualSelected || !selectedExecutionKey) {
+    return false;
+  }
+
+  delete state.trainingSelectedExecutionByDiscipline[normalizedDisciplineId];
+  return true;
+}
+
+function getSelectedTrainingExecutionKey(disciplineId, executionOptions = getTrainingExecutionOptions(disciplineId)) {
+  const normalizedDisciplineId = normalizeText(disciplineId);
+  if (!normalizedDisciplineId) {
+    return "";
+  }
+
+  if (executionOptions.length <= 1) {
+    return executionOptions[0]?.key || "";
+  }
+
+  return normalizeText(state.trainingSelectedExecutionByDiscipline?.[normalizedDisciplineId]);
+}
+
+function getSelectedTrainingExecutionOption(disciplineId, executionOptions = getTrainingExecutionOptions(disciplineId)) {
+  const executionKey = getSelectedTrainingExecutionKey(disciplineId, executionOptions);
+  return executionOptions.find((option) => option.key === executionKey) || null;
+}
+
+function setTrainingSelectedExecution(disciplineId, executionKey, { renderView = true } = {}) {
+  const normalizedDisciplineId = normalizeText(disciplineId);
+  const normalizedExecutionKey = normalizeText(executionKey);
+  if (!normalizedDisciplineId) {
+    return;
+  }
+
+  state.trainingSelectedExecutionByDiscipline = normalizeTrainingSelectedExecutionMap(state.trainingSelectedExecutionByDiscipline);
+  if (normalizedExecutionKey) {
+    state.trainingSelectedExecutionByDiscipline[normalizedDisciplineId] = normalizedExecutionKey;
+  } else {
+    delete state.trainingSelectedExecutionByDiscipline[normalizedDisciplineId];
+  }
+
+  saveTrainingState();
+  if (renderView) {
+    renderTrainingView();
+  }
+}
+
+function createTrainingManualEntryRule(selectedDiscipline, executionOption) {
+  const sourceRule = executionOption?.rule;
+  if (!selectedDiscipline || !sourceRule) {
+    return null;
+  }
+
+  const executionText = resolveTrainingExecutionText(sourceRule);
+  return {
+    ...sourceRule,
+    disciplineName: sourceRule.disciplineName || selectedDiscipline.title || selectedDiscipline.disciplineName,
+    disciplineBaseName: sourceRule.disciplineBaseName || selectedDiscipline.title || selectedDiscipline.disciplineName,
+    disciplineVariant: executionText === "-" ? null : executionText,
+    disciplineCode: `manual:${normalizeText(sourceRule.disciplineCode || sourceRule.catalogCode || sourceRule.ruleId || executionOption.key)}`,
+    thresholdsRaw: {
+      bronze: "-",
+      silver: "-",
+      gold: "-"
+    },
+    thresholdsNormalized: {
+      bronze: NaN,
+      silver: NaN,
+      gold: NaN
+    }
+  };
+}
+
 function setTrainingSelectedDiscipline(disciplineId) {
   const normalizedDisciplineId = normalizeText(disciplineId);
-  if (!normalizedDisciplineId || normalizedDisciplineId === state.trainingSelectedDisciplineId) {
+  if (!normalizedDisciplineId) {
+    return;
+  }
+
+  if (trainingQuickModal && !trainingQuickModal.hidden) {
+    closeTrainingQuickEntryModal();
+  }
+
+  if (normalizedDisciplineId === state.trainingSelectedDisciplineId) {
+    let changed = false;
+    if (!isTrainingSplitLayout() && state.trainingCompactPane !== "content") {
+      state.trainingCompactPane = "content";
+      changed = true;
+    }
+
+    if (changed) {
+      saveTrainingState();
+    }
+    renderTrainingView();
     return;
   }
 
@@ -4371,7 +9158,7 @@ function setTrainingSelectedDiscipline(disciplineId) {
   renderTrainingView();
 }
 
-function getTrainingRuleForAthlete(athlete, disciplineId) {
+function getTrainingRuleForAthlete(athlete, disciplineId, executionKey = "") {
   const normalizedDisciplineId = normalizeText(disciplineId);
   if (!athlete || !normalizedDisciplineId) {
     return {
@@ -4382,17 +9169,269 @@ function getTrainingRuleForAthlete(athlete, disciplineId) {
 
   const requirementGroup = getRequirementGroupForAthlete(athlete);
   if (!requirementGroup || !Array.isArray(requirementGroup.disciplines)) {
+    const customRules = getAllCustomDisciplineRules().filter((rule) => getTrainingDisciplineIdFromRule(rule) === normalizedDisciplineId);
+    const normalizedExecutionKey = normalizeText(executionKey);
+    const customRule = normalizedExecutionKey
+      ? customRules.find((rule) => getTrainingExecutionOptionKey(rule) === normalizedExecutionKey) || null
+      : customRules[0] || null;
+
     return {
       requirementGroup,
-      rule: null
+      rule: customRule
     };
   }
 
-  const matchingRule = requirementGroup.disciplines.find((rule) => getTrainingDisciplineIdFromRule(rule) === normalizedDisciplineId) || null;
+  const matchingRules = requirementGroup.disciplines.filter((rule) => getTrainingDisciplineIdFromRule(rule) === normalizedDisciplineId);
+  const normalizedExecutionKey = normalizeText(executionKey);
+  const matchingRule = normalizedExecutionKey
+    ? matchingRules.find((rule) => getTrainingExecutionOptionKey(rule) === normalizedExecutionKey) || null
+    : matchingRules[0] || null;
+
+  if (matchingRule) {
+    return {
+      requirementGroup,
+      rule: matchingRule
+    };
+  }
+
+  const customRules = getAllCustomDisciplineRules().filter((rule) => getTrainingDisciplineIdFromRule(rule) === normalizedDisciplineId);
+  const customRule = normalizedExecutionKey
+    ? customRules.find((rule) => getTrainingExecutionOptionKey(rule) === normalizedExecutionKey) || null
+    : customRules[0] || null;
+
   return {
     requirementGroup,
-    rule: matchingRule
+    rule: customRule
   };
+}
+
+function resolveTrainingExamRuleForAthlete(athlete, selectedDiscipline, { allowFallback = false } = {}) {
+  if (!athlete || !selectedDiscipline) {
+    return {
+      requirementGroup: null,
+      rule: null,
+      inputRule: null,
+      selectedExecutionOption: null
+    };
+  }
+
+  const executionOptions = getTrainingExecutionOptions(selectedDiscipline.id);
+  const selectedExecutionOption = getSelectedTrainingExecutionOption(selectedDiscipline.id, executionOptions);
+  const { requirementGroup, rule } = getTrainingRuleForAthlete(athlete, selectedDiscipline.id, selectedExecutionOption?.key || "");
+  const fallbackExecutionOption = selectedExecutionOption || executionOptions[0] || null;
+  const inputRule = rule || (allowFallback && fallbackExecutionOption ? createTrainingManualEntryRule(selectedDiscipline, fallbackExecutionOption) : null);
+
+  return {
+    requirementGroup,
+    rule,
+    inputRule,
+    selectedExecutionOption
+  };
+}
+
+function getTrainingAgeBandLabel(requirementGroup) {
+  const ageMin = Number(requirementGroup?.ageMin);
+  const ageMax = Number(requirementGroup?.ageMax);
+  if (Number.isFinite(ageMin) && Number.isFinite(ageMax)) {
+    return `${ageMin}-${ageMax}`;
+  }
+
+  return "keine DSA-Altersklasse";
+}
+
+function getTrainingAthleteRowById(disciplineId, athleteId) {
+  const normalizedAthleteId = normalizeText(athleteId);
+  if (!normalizedAthleteId) {
+    return null;
+  }
+
+  return getTrainingAthleteRows(disciplineId).find((row) => row.athlete.id === normalizedAthleteId) || null;
+}
+
+function closeTrainingQuickEntryModal() {
+  trainingQuickModalAthleteId = "";
+  trainingQuickModalEditingEntryId = "";
+  if (trainingQuickModal) {
+    trainingQuickModal.hidden = true;
+  }
+  updateBodyScrollLock();
+}
+
+function renderTrainingQuickEntryModal() {
+  if (!trainingQuickModal || trainingQuickModal.hidden) {
+    return;
+  }
+
+  const selectedDiscipline = getSelectedTrainingDiscipline();
+  const athleteRow = selectedDiscipline ? getTrainingAthleteRowById(selectedDiscipline.id, trainingQuickModalAthleteId) : null;
+  if (!selectedDiscipline || !athleteRow) {
+    closeTrainingQuickEntryModal();
+    return;
+  }
+
+  const executionOptions = getTrainingExecutionOptions(selectedDiscipline.id);
+  const selectedExecutionOption = getSelectedTrainingExecutionOption(selectedDiscipline.id, executionOptions);
+  const activeInputRule = athleteRow.inputRule || athleteRow.rule;
+  const isLevelRule = activeInputRule?.unitType === "level";
+  const inputLabel = trainingQuickModalInput?.closest(".training-quick-modal-input-label") || null;
+
+  if (trainingQuickModalTitle) {
+    trainingQuickModalTitle.textContent = athleteDisplayName(athleteRow.athlete) || "Athlet";
+  }
+
+  if (trainingQuickModalMeta) {
+    trainingQuickModalMeta.textContent = `${athleteCode(athleteRow.athlete)} | Bestleistung: ${athleteRow.bestValue}`;
+  }
+
+  if (trainingQuickModalRequirements) {
+    trainingQuickModalRequirements.innerHTML = "";
+    if (athleteRow.rule) {
+      const requirementRow = document.createElement("div");
+      requirementRow.className = "training-requirement-row";
+      requirementRow.append(
+        createTrainingRequirementChipElement("Bronze", athleteRow.rule.thresholdsRaw?.bronze),
+        createTrainingRequirementChipElement("Silber", athleteRow.rule.thresholdsRaw?.silver),
+        createTrainingRequirementChipElement("Gold", athleteRow.rule.thresholdsRaw?.gold)
+      );
+      trainingQuickModalRequirements.append(requirementRow);
+    } else {
+      const warning = document.createElement("p");
+      warning.className = "training-athlete-meta training-athlete-meta--warning";
+      warning.textContent = "Angabe kann fuer das Sportabzeichen nicht beruecksichtigt werden.";
+      trainingQuickModalRequirements.append(warning);
+    }
+  }
+
+  if (trainingQuickModalExecutions) {
+    trainingQuickModalExecutions.innerHTML = "";
+    if (executionOptions.length > 1) {
+      for (const executionOption of executionOptions) {
+        const hasDsaRule = !!getTrainingRuleForAthlete(athleteRow.athlete, selectedDiscipline.id, executionOption.key).rule;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `training-execution-chip${executionOption.key === selectedExecutionOption?.key ? " is-active" : ""}${hasDsaRule ? " is-dsa" : " is-no-dsa"}`;
+        button.dataset.trainingAction = "quick-modal-select-execution";
+        button.dataset.executionKey = executionOption.key;
+        button.textContent = executionOption.label || "Standard";
+        button.title = hasDsaRule ? "Diese Ausfuehrung wird fuers Sportabzeichen gewertet." : "Diese Ausfuehrung wird nicht fuers Sportabzeichen gewertet.";
+        trainingQuickModalExecutions.append(button);
+      }
+    }
+  }
+
+  if (trainingQuickModalInput) {
+    trainingQuickModalInput.placeholder = activeInputRule ? performanceValuePlaceholder(activeInputRule) : "Leistung eingeben";
+    trainingQuickModalInput.disabled = !activeInputRule || isLevelRule;
+    trainingQuickModalInput.readOnly = isLevelRule;
+    trainingQuickModalInput.value = getTrainingInputDraftValue(selectedDiscipline.id, athleteRow.athlete.id);
+  }
+
+  if (inputLabel) {
+    inputLabel.hidden = isLevelRule;
+  }
+
+  if (trainingQuickModalLevels) {
+    trainingQuickModalLevels.hidden = !isLevelRule;
+    if (isLevelRule) {
+      const selectedLevel = normalizeBadgeMedalLevel(getTrainingInputDraftValue(selectedDiscipline.id, athleteRow.athlete.id));
+      for (const levelButton of trainingQuickModalLevels.querySelectorAll("[data-training-action='quick-modal-level'][data-level]")) {
+        const level = normalizeBadgeMedalLevel(levelButton.dataset.level);
+        levelButton.classList.toggle("is-active", !!selectedLevel && level === selectedLevel);
+      }
+    }
+  }
+
+  if (trainingQuickModalSaveButton) {
+    trainingQuickModalSaveButton.disabled = !activeInputRule;
+    trainingQuickModalSaveButton.textContent = trainingQuickModalEditingEntryId
+      ? "Aktualisieren"
+      : (athleteRow.rule ? "Speichern" : "Ohne DSA speichern");
+  }
+
+  if (trainingQuickModalHistory) {
+    trainingQuickModalHistory.innerHTML = "";
+
+    const storageKey = activeInputRule ? getRuleStorageKey(activeInputRule) : "";
+    const entries = storageKey ? getPerformanceEntries(athleteRow.athlete, storageKey) : [];
+    const sortedEntries = entries
+      .slice()
+      .sort((left, right) => new Date(right.measuredAt).getTime() - new Date(left.measuredAt).getTime())
+      .slice(0, 8);
+
+    if (sortedEntries.length === 0) {
+      const emptyItem = document.createElement("li");
+      emptyItem.className = "history-item";
+      emptyItem.textContent = "Noch keine Leistung erfasst.";
+      trainingQuickModalHistory.append(emptyItem);
+    } else {
+      for (const entry of sortedEntries) {
+        const item = document.createElement("li");
+        item.className = "history-item";
+        if (trainingQuickModalEditingEntryId === entry.id) {
+          item.classList.add("is-active");
+        }
+
+        const trigger = document.createElement("button");
+        trigger.type = "button";
+        trigger.className = "history-item-btn";
+        trigger.dataset.trainingAction = "quick-modal-edit-entry";
+        trigger.dataset.entryId = entry.id;
+
+        const main = document.createElement("div");
+        main.className = "history-main";
+
+        const level = activeInputRule ? evaluatePerformanceLevel(activeInputRule, entry.valueNormalized) : "-";
+        const valueLine = document.createElement("strong");
+        valueLine.textContent = `Ausfuehrung: ${resolveTrainingExecutionText(activeInputRule)} | ${activeInputRule ? formatNormalizedValue(activeInputRule, entry.valueNormalized, entry.valueInput) : normalizeText(entry.valueInput)} (${level})`;
+
+        const meta = document.createElement("p");
+        meta.className = "history-meta";
+        meta.textContent = `${formatDateTime(entry.measuredAt)}${trainingQuickModalEditingEntryId === entry.id ? " | Bearbeitung aktiv" : " | Tippen zum Bearbeiten"}`;
+
+        main.append(valueLine, meta);
+        trigger.append(main);
+        item.append(trigger);
+        trainingQuickModalHistory.append(item);
+      }
+    }
+  }
+}
+
+function openTrainingQuickEntryModal(athleteId) {
+  const normalizedAthleteId = normalizeText(athleteId);
+  if (!trainingQuickModal || !normalizedAthleteId) {
+    return;
+  }
+
+  trainingQuickModalAthleteId = normalizedAthleteId;
+  trainingQuickModalEditingEntryId = "";
+  trainingQuickModal.hidden = false;
+  renderTrainingQuickEntryModal();
+  updateBodyScrollLock();
+
+  if (trainingQuickModalInput && !trainingQuickModalInput.disabled) {
+    requestAnimationFrame(() => {
+      trainingQuickModalInput.focus();
+      trainingQuickModalInput.select();
+    });
+  }
+}
+
+function openTrainingExamForExecution(disciplineId, executionKey = "") {
+  const normalizedDisciplineId = normalizeText(disciplineId);
+  if (!normalizedDisciplineId) {
+    return;
+  }
+
+  state.trainingSelectedDisciplineId = normalizedDisciplineId;
+  setTrainingSelectedExecution(normalizedDisciplineId, executionKey, { renderView: false });
+  state.trainingViewMode = "exam";
+  if (!isTrainingSplitLayout()) {
+    state.trainingCompactPane = "content";
+  }
+
+  saveTrainingState();
+  renderTrainingView();
 }
 
 function getTrainingInputDraftKey(disciplineId, athleteId) {
@@ -4668,34 +9707,45 @@ function getTrainingAthleteRows(disciplineId) {
     return [];
   }
 
+  const selectedDiscipline = getTrainingDisciplineCatalog().find((discipline) => discipline.id === normalizedDisciplineId) || null;
+  const executionOptions = getTrainingExecutionOptions(normalizedDisciplineId);
+  const selectedExecutionKey = getSelectedTrainingExecutionKey(normalizedDisciplineId, executionOptions);
+  const selectedExecutionOption = getSelectedTrainingExecutionOption(normalizedDisciplineId, executionOptions);
+
   const rows = getVisibleAthletes().map((athlete) => {
-    const { requirementGroup, rule } = getTrainingRuleForAthlete(athlete, normalizedDisciplineId);
-    const storageKey = rule ? getRuleStorageKey(rule) : "";
-    const entries = rule ? getPerformanceEntries(athlete, storageKey) : [];
-    const bestEntry = rule ? getBestPerformanceEntry(rule, entries) : null;
+    const isActiveToday = isAthleteActiveForToday(athlete.id);
+    const effectiveExecutionKey = selectedExecutionKey === TRAINING_EXECUTION_INDIVIDUAL_KEY ? "" : (selectedExecutionOption?.key || "");
+    const { requirementGroup, rule } = getTrainingRuleForAthlete(athlete, normalizedDisciplineId, effectiveExecutionKey);
+    const fallbackExecutionOption = selectedExecutionOption || executionOptions[0] || null;
+    const inputRule = rule || (selectedDiscipline && fallbackExecutionOption ? createTrainingManualEntryRule(selectedDiscipline, fallbackExecutionOption) : null);
+    const storageKey = inputRule ? getRuleStorageKey(inputRule) : "";
+    const entries = inputRule ? getPerformanceEntries(athlete, storageKey) : [];
+    const bestEntry = inputRule ? getBestPerformanceEntry(inputRule, entries) : null;
     const bestLevel = bestEntry && rule ? evaluatePerformanceLevel(rule, bestEntry.valueNormalized) : "-";
 
     return {
       athlete,
+      isActiveToday,
       requirementGroup,
       rule,
+      inputRule,
+      selectedExecutionOption,
       bestEntry,
       bestLevel,
-      bestValue: bestEntry && rule ? formatNormalizedValue(rule, bestEntry.valueNormalized, bestEntry.valueInput) : "-"
+      bestValue: bestEntry && inputRule ? formatNormalizedValue(inputRule, bestEntry.valueNormalized, bestEntry.valueInput) : "-"
     };
   });
 
   rows.sort((left, right) => {
+    if (left.isActiveToday !== right.isActiveToday) {
+      return left.isActiveToday ? -1 : 1;
+    }
+
     if (!!left.rule !== !!right.rule) {
       return left.rule ? -1 : 1;
     }
 
-    const byFirstName = normalizeText(left.athlete.firstName).localeCompare(normalizeText(right.athlete.firstName), "de");
-    if (byFirstName !== 0) {
-      return byFirstName;
-    }
-
-    return normalizeText(left.athlete.lastName).localeCompare(normalizeText(right.athlete.lastName), "de");
+    return compareAthletesByDailyActiveAndName(left.athlete, right.athlete);
   });
 
   return rows;
@@ -4841,8 +9891,10 @@ function renderTrainingDisciplineList(catalog = getTrainingDisciplineCatalog()) 
       title.textContent = discipline.title || discipline.disciplineName;
 
       const metaParts = [getTrainingUnitTypeLabel(discipline.unitType)];
-      if (discipline.detail) {
-        metaParts.unshift(discipline.detail);
+      if (discipline.variantCount > 1) {
+        metaParts.unshift(`${discipline.variantCount} Ausfuehrungen`);
+      } else if (discipline.variantPreview) {
+        metaParts.unshift(discipline.variantPreview);
       }
 
       const meta = document.createElement("span");
@@ -4881,20 +9933,58 @@ function createTrainingRequirementChipElement(level, valueText) {
   return chip;
 }
 
+function createTrainingExecutionSelector(
+  selectedDiscipline,
+  executionOptions = getTrainingExecutionOptions(selectedDiscipline?.id),
+  { includeIndividualMode = false } = {}
+) {
+  if (!selectedDiscipline || executionOptions.length <= 1) {
+    return null;
+  }
+
+  const selectedExecutionKey = getSelectedTrainingExecutionKey(selectedDiscipline.id, executionOptions);
+  const wrapper = document.createElement("section");
+  wrapper.className = "training-execution-selector";
+
+  const title = document.createElement("p");
+  title.className = "training-execution-selector-title";
+  title.textContent = "Ausfuehrungen";
+
+  const chipRow = document.createElement("div");
+  chipRow.className = "training-execution-chip-row";
+
+  for (const executionOption of executionOptions) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `training-execution-chip${executionOption.key === selectedExecutionKey ? " is-active" : ""}`;
+    chip.dataset.trainingAction = "select-execution";
+    chip.dataset.disciplineId = selectedDiscipline.id;
+    chip.dataset.executionKey = executionOption.key;
+    chip.textContent = executionOption.label || "Standard";
+    chipRow.append(chip);
+  }
+
+  if (includeIndividualMode) {
+    const individualChip = document.createElement("button");
+    individualChip.type = "button";
+    individualChip.className = `training-execution-chip${selectedExecutionKey === TRAINING_EXECUTION_INDIVIDUAL_KEY ? " is-active" : ""}`;
+    individualChip.dataset.trainingAction = "select-execution";
+    individualChip.dataset.disciplineId = selectedDiscipline.id;
+    individualChip.dataset.executionKey = TRAINING_EXECUTION_INDIVIDUAL_KEY;
+    individualChip.textContent = "Individuell DSA";
+    chipRow.append(individualChip);
+  }
+
+  wrapper.append(title, chipRow);
+  return wrapper;
+}
+
 function renderTrainingRequirementsPane(selectedDiscipline = getSelectedTrainingDiscipline()) {
   if (!trainingRequirementsPane) {
     return;
   }
 
   trainingRequirementsPane.innerHTML = "";
-
-  if (!state.requirements || !Array.isArray(state.requirements?.groups)) {
-    const empty = document.createElement("p");
-    empty.className = "group-empty-note";
-    empty.textContent = "Anforderungen sind noch nicht geladen.";
-    trainingRequirementsPane.append(empty);
-    return;
-  }
 
   if (!selectedDiscipline) {
     const empty = document.createElement("p");
@@ -4904,20 +9994,65 @@ function renderTrainingRequirementsPane(selectedDiscipline = getSelectedTraining
     return;
   }
 
+  const isCustomDiscipline = normalizeText(selectedDiscipline.category) === "eigenedisziplinen";
+  if (isCustomDiscipline) {
+    const executionOptions = getTrainingExecutionOptions(selectedDiscipline.id);
+    const executionSelector = createTrainingExecutionSelector(selectedDiscipline, executionOptions);
+    if (executionSelector) {
+      trainingRequirementsPane.append(executionSelector);
+    }
+
+    const modeCard = document.createElement("section");
+    modeCard.className = "training-mode-card";
+
+    const heading = document.createElement("div");
+    heading.className = "training-mode-title";
+
+    const disciplineMeta = getCustomDisciplineById(selectedDiscipline.customDisciplineId);
+    const description = normalizeText(disciplineMeta?.description) || "Eigene Disziplin ohne DSA-Anforderungsmatrix.";
+    heading.innerHTML = `<div><h3>${selectedDiscipline.title || selectedDiscipline.disciplineName}</h3><p>${description}</p></div>`;
+
+    const info = document.createElement("p");
+    info.className = "form-subnote";
+    info.textContent = `${getTrainingUnitTypeLabel(selectedDiscipline.unitType)} | ${normalizeText(disciplineMeta?.better) === "lower" ? "Weniger" : "Mehr"} ist besser`;
+
+    modeCard.append(heading, info);
+    trainingRequirementsPane.append(modeCard);
+    return;
+  }
+
+  if (!state.requirements || !Array.isArray(state.requirements?.groups)) {
+    const empty = document.createElement("p");
+    empty.className = "group-empty-note";
+    empty.textContent = "Anforderungen sind noch nicht geladen.";
+    trainingRequirementsPane.append(empty);
+    return;
+  }
+
+  const executionOptions = getTrainingExecutionOptions(selectedDiscipline.id);
+  const selectedExecutionOption = getSelectedTrainingExecutionOption(selectedDiscipline.id, executionOptions);
+  const executionSelector = createTrainingExecutionSelector(selectedDiscipline, executionOptions);
+  if (executionSelector) {
+    trainingRequirementsPane.append(executionSelector);
+  }
+
   const matchingRules = [];
   for (const requirementGroup of state.requirements.groups) {
     const groupDisciplines = Array.isArray(requirementGroup?.disciplines) ? requirementGroup.disciplines : [];
-    const matchingRule = groupDisciplines.find((rule) => getTrainingDisciplineIdFromRule(rule) === selectedDiscipline.id);
-    if (!matchingRule) {
+    const matchingGroupRules = groupDisciplines.filter((rule) => getTrainingDisciplineIdFromRule(rule) === selectedDiscipline.id);
+    if (matchingGroupRules.length === 0) {
       continue;
     }
 
-    matchingRules.push({
-      ageMin: Number(requirementGroup.ageMin),
-      ageMax: Number(requirementGroup.ageMax),
-      gender: normalizeText(requirementGroup.gender).toUpperCase() === "W" ? "W" : "M",
-      rule: matchingRule
-    });
+    for (const matchingRule of matchingGroupRules) {
+      matchingRules.push({
+        ageMin: Number(requirementGroup.ageMin),
+        ageMax: Number(requirementGroup.ageMax),
+        gender: normalizeText(requirementGroup.gender).toUpperCase() === "W" ? "W" : "M",
+        execution: resolveTrainingExecutionText(matchingRule),
+        rule: matchingRule
+      });
+    }
   }
 
   if (matchingRules.length === 0) {
@@ -4931,78 +10066,173 @@ function renderTrainingRequirementsPane(selectedDiscipline = getSelectedTraining
   const modeCard = document.createElement("section");
   modeCard.className = "training-mode-card";
 
+  const representedAgeBands = new Set();
+  const representedAgeBandGenderExecutionKeys = new Set();
+  for (const athlete of getVisibleAthletes()) {
+    const { requirementGroup } = getTrainingRuleForAthlete(athlete, selectedDiscipline.id, selectedExecutionOption?.key || "");
+    if (!requirementGroup || !Array.isArray(requirementGroup.disciplines)) {
+      continue;
+    }
+
+    const ageMin = Number(requirementGroup.ageMin);
+    const ageMax = Number(requirementGroup.ageMax);
+    const gender = normalizeText(requirementGroup.gender).toUpperCase() === "W" ? "W" : "M";
+    const ageBandKey = `${ageMin}-${ageMax}`;
+    representedAgeBands.add(ageBandKey);
+
+    const athleteExecutionRules = requirementGroup.disciplines.filter((rule) => getTrainingDisciplineIdFromRule(rule) === selectedDiscipline.id);
+    for (const athleteExecutionRule of athleteExecutionRules) {
+      const execution = resolveTrainingExecutionText(athleteExecutionRule);
+      representedAgeBandGenderExecutionKeys.add(`${ageBandKey}|${gender}|${execution}`);
+    }
+  }
+
   const heading = document.createElement("div");
   heading.className = "training-mode-title";
-  heading.innerHTML = `<div><h3>${selectedDiscipline.disciplineName}</h3><p>Altersklasse x Geschlecht mit Bronze / Silber / Gold.</p></div>`;
+  heading.innerHTML = `<div><h3>${selectedDiscipline.title || selectedDiscipline.disciplineName}</h3><p>Altersklasse x Geschlecht mit Bronze / Silber / Gold.</p></div>`;
 
-  const byAgeBand = new Map();
+  const executionMap = new Map();
   for (const entry of matchingRules) {
-    const ageBandKey = `${entry.ageMin}-${entry.ageMax}`;
-    if (!byAgeBand.has(ageBandKey)) {
-      byAgeBand.set(ageBandKey, {
-        ageMin: entry.ageMin,
-        ageMax: entry.ageMax,
-        W: null,
-        M: null
+    const executionKey = normalizeText(entry.execution) || "-";
+    if (!executionMap.has(executionKey)) {
+      executionMap.set(executionKey, []);
+    }
+    executionMap.get(executionKey).push(entry);
+  }
+
+  const sortedExecutions = Array.from(executionMap.keys()).sort((left, right) => {
+    if (left === "-" && right !== "-") {
+      return 1;
+    }
+    if (left !== "-" && right === "-") {
+      return -1;
+    }
+    return left.localeCompare(right, "de");
+  });
+
+  modeCard.append(heading);
+
+  for (const execution of sortedExecutions) {
+    const executionEntries = executionMap.get(execution) || [];
+    const executionRule = executionEntries[0]?.rule || null;
+    const executionKey = executionRule ? getTrainingExecutionOptionKey(executionRule) : "";
+    const executionBlock = document.createElement("section");
+    executionBlock.className = "training-req-execution-block";
+
+    const byAgeBand = new Map();
+    for (const entry of executionEntries) {
+      const ageBandKey = `${entry.ageMin}-${entry.ageMax}`;
+      if (!byAgeBand.has(ageBandKey)) {
+        byAgeBand.set(ageBandKey, {
+          ageMin: entry.ageMin,
+          ageMax: entry.ageMax,
+          M: null,
+          W: null
+        });
+      }
+
+      byAgeBand.get(ageBandKey)[entry.gender] = entry.rule;
+    }
+
+    const sortedAgeBands = Array.from(byAgeBand.values()).sort((left, right) => {
+      if (left.ageMin !== right.ageMin) {
+        return left.ageMin - right.ageMin;
+      }
+
+      return left.ageMax - right.ageMax;
+    });
+
+    const tableWrap = document.createElement("div");
+    tableWrap.className = "training-req-table-wrap";
+    tableWrap.dataset.trainingAction = "open-exam-execution";
+    tableWrap.dataset.disciplineId = selectedDiscipline.id;
+    tableWrap.dataset.executionKey = executionKey;
+    tableWrap.title = "Tippen: Pruefungsmodus fuer diese Ausfuehrung";
+    if (executionKey && selectedExecutionOption && executionKey === selectedExecutionOption.key) {
+      tableWrap.classList.add("is-selected");
+      requestAnimationFrame(() => {
+        tableWrap.scrollIntoView({ block: "nearest", inline: "nearest" });
       });
     }
 
-    byAgeBand.get(ageBandKey)[entry.gender] = entry.rule;
-  }
+    const table = document.createElement("table");
+    table.className = "training-req-table";
 
-  const sortedAgeBands = Array.from(byAgeBand.values()).sort((left, right) => {
-    if (left.ageMin !== right.ageMin) {
-      return left.ageMin - right.ageMin;
+    const thead = document.createElement("thead");
+    const headRowPrimary = document.createElement("tr");
+    const headAge = document.createElement("th");
+    headAge.textContent = execution;
+    headAge.classList.add("training-req-execution-head");
+    headAge.rowSpan = 2;
+    headRowPrimary.append(headAge);
+
+    const headMale = document.createElement("th");
+    headMale.textContent = "Maennlich";
+    headMale.colSpan = 3;
+    headRowPrimary.append(headMale);
+
+    const headFemale = document.createElement("th");
+    headFemale.textContent = "Weiblich";
+    headFemale.colSpan = 3;
+    headRowPrimary.append(headFemale);
+
+    const headRowSecondary = document.createElement("tr");
+    for (const label of ["Bronze", "Silber", "Gold", "Bronze", "Silber", "Gold"]) {
+      const th = document.createElement("th");
+      th.textContent = label;
+      th.classList.add(`training-req-head-medal--${label.toLowerCase()}`);
+      headRowSecondary.append(th);
     }
 
-    return left.ageMax - right.ageMax;
-  });
+    thead.append(headRowPrimary, headRowSecondary);
 
-  const tableWrap = document.createElement("div");
-  tableWrap.className = "training-req-table-wrap";
+    const tbody = document.createElement("tbody");
 
-  const table = document.createElement("table");
-  table.className = "training-req-table";
+    const appendRuleCells = (tableRow, rule, isRepresented = false) => {
+      const bronzeCell = document.createElement("td");
+      bronzeCell.classList.add("training-req-cell--bronze");
+      bronzeCell.textContent = normalizeText(rule?.thresholdsRaw?.bronze) || "-";
 
-  const thead = document.createElement("thead");
-  thead.innerHTML =
-    "<tr><th>Altersklasse</th><th>W Bronze</th><th>W Silber</th><th>W Gold</th><th>W Ausfuehrung</th><th>M Bronze</th><th>M Silber</th><th>M Gold</th><th>M Ausfuehrung</th></tr>";
+      const silverCell = document.createElement("td");
+      silverCell.classList.add("training-req-cell--silber");
+      silverCell.textContent = normalizeText(rule?.thresholdsRaw?.silver) || "-";
 
-  const tbody = document.createElement("tbody");
+      const goldCell = document.createElement("td");
+      goldCell.classList.add("training-req-cell--gold");
+      goldCell.textContent = normalizeText(rule?.thresholdsRaw?.gold) || "-";
 
-  const appendRuleCells = (tableRow, rule) => {
-    const bronzeCell = document.createElement("td");
-    bronzeCell.textContent = normalizeText(rule?.thresholdsRaw?.bronze) || "-";
+      if (isRepresented) {
+        bronzeCell.classList.add("training-req-cell--represented");
+        silverCell.classList.add("training-req-cell--represented");
+        goldCell.classList.add("training-req-cell--represented");
+      }
 
-    const silverCell = document.createElement("td");
-    silverCell.textContent = normalizeText(rule?.thresholdsRaw?.silver) || "-";
+      tableRow.append(bronzeCell, silverCell, goldCell);
+    };
 
-    const goldCell = document.createElement("td");
-    goldCell.textContent = normalizeText(rule?.thresholdsRaw?.gold) || "-";
+    for (const ageBand of sortedAgeBands) {
+      const row = document.createElement("tr");
+      const ageBandKey = `${ageBand.ageMin}-${ageBand.ageMax}`;
 
-    const executionCell = document.createElement("td");
-    executionCell.textContent = resolveTrainingExecutionText(rule);
+      const ageCell = document.createElement("td");
+      ageCell.className = "training-req-age";
+      ageCell.textContent = `${ageBand.ageMin}-${ageBand.ageMax}`;
+      if (representedAgeBands.has(ageBandKey)) {
+        ageCell.classList.add("training-req-age--represented");
+      }
 
-    tableRow.append(bronzeCell, silverCell, goldCell, executionCell);
-  };
+      row.append(ageCell);
+      appendRuleCells(row, ageBand.M, representedAgeBandGenderExecutionKeys.has(`${ageBandKey}|M|${execution}`));
+      appendRuleCells(row, ageBand.W, representedAgeBandGenderExecutionKeys.has(`${ageBandKey}|W|${execution}`));
+      tbody.append(row);
+    }
 
-  for (const ageBand of sortedAgeBands) {
-    const row = document.createElement("tr");
-
-    const ageCell = document.createElement("td");
-    ageCell.className = "training-req-age";
-    ageCell.textContent = `${ageBand.ageMin}-${ageBand.ageMax}`;
-
-    row.append(ageCell);
-    appendRuleCells(row, ageBand.W);
-    appendRuleCells(row, ageBand.M);
-
-    tbody.append(row);
+    table.append(thead, tbody);
+    tableWrap.append(table);
+    executionBlock.append(tableWrap);
+    modeCard.append(executionBlock);
   }
 
-  table.append(thead, tbody);
-  tableWrap.append(table);
-  modeCard.append(heading, tableWrap);
   trainingRequirementsPane.append(modeCard);
 }
 
@@ -5250,6 +10480,11 @@ function startTrainingAthleteTiming(athleteId) {
     return;
   }
 
+  if (!isAthleteActiveForToday(normalizedAthleteId)) {
+    showToast("Athlet ist fuer heute deaktiviert.");
+    return;
+  }
+
   const athlete = state.athletes.find((entry) => entry.id === normalizedAthleteId) || null;
   if (!athlete) {
     return;
@@ -5277,6 +10512,11 @@ function stopTrainingAthleteTiming(athleteId) {
   const normalizedAthleteId = normalizeText(athleteId);
   const selectedDiscipline = getSelectedTrainingDiscipline();
   if (!normalizedAthleteId || !selectedDiscipline || !["time_mm_ss", "time_seconds"].includes(selectedDiscipline.unitType)) {
+    return;
+  }
+
+  if (!isAthleteActiveForToday(normalizedAthleteId)) {
+    showToast("Athlet ist fuer heute deaktiviert.");
     return;
   }
 
@@ -5309,6 +10549,11 @@ function abortTrainingAthleteTiming(athleteId) {
     return;
   }
 
+  if (!isAthleteActiveForToday(normalizedAthleteId)) {
+    showToast("Athlet ist fuer heute deaktiviert.");
+    return;
+  }
+
   const confirmActionKey = createTrainingAbortActionKey("athlete", selectedDiscipline.id, [normalizedAthleteId]);
   if (!requestTrainingAbortConfirmation(confirmActionKey, "Erneut tippen: Start dieses Athleten abbrechen.")) {
     return;
@@ -5334,24 +10579,24 @@ function saveTrainingQuickPerformance(athleteId) {
     return;
   }
 
-  if (["time_mm_ss", "time_seconds"].includes(selectedDiscipline.unitType)) {
-    showToast("In dieser Disziplin bitte Start/Stop nutzen.");
-    return;
-  }
-
   const athlete = state.athletes.find((entry) => entry.id === normalizedAthleteId) || null;
   if (!athlete) {
     return;
   }
 
-  const { rule } = getTrainingRuleForAthlete(athlete, selectedDiscipline.id);
-  if (!rule) {
-    showToast("Fuer diesen Athleten ist diese Disziplin nicht verfuegbar.");
+  const { rule, inputRule, selectedExecutionOption } = resolveTrainingExamRuleForAthlete(athlete, selectedDiscipline, { allowFallback: true });
+  if (!inputRule) {
+    if (getTrainingExecutionOptions(selectedDiscipline.id).length > 1 && !selectedExecutionOption) {
+      showToast("Bitte zuerst die aktuelle Ausfuehrung auswaehlen.");
+      return;
+    }
+
+    showToast("Fuer diese Eingabe steht keine passende Ausfuehrung bereit.");
     return;
   }
 
   let rawDraftValue = getTrainingInputDraftValue(selectedDiscipline.id, normalizedAthleteId);
-  if (isTrainingThreeOfFourPointsRule(rule)) {
+  if (isTrainingThreeOfFourPointsRule(inputRule)) {
     if (!rawDraftValue) {
       const autoTotalResult = getTrainingThreeOfFourAutoTotal(selectedDiscipline.id, normalizedAthleteId);
       if (!autoTotalResult.ok) {
@@ -5368,9 +10613,48 @@ function saveTrainingQuickPerformance(athleteId) {
     return;
   }
 
-  const saveResult = appendPerformanceEntryForRule(athlete, rule, rawDraftValue, new Date().toISOString(), {
-    source: "training_exam_quick"
-  });
+  let saveResult = null;
+  const storageKey = getRuleStorageKey(inputRule);
+
+  if (trainingQuickModalEditingEntryId) {
+    const parsedValue = parsePerformanceValue(inputRule, rawDraftValue);
+    if (!parsedValue.ok) {
+      showToast(parsedValue.message || "Leistung konnte nicht gespeichert werden.");
+      return;
+    }
+
+    const entries = getPerformanceEntries(athlete, storageKey).slice();
+    const entryIndex = entries.findIndex((entry) => entry.id === trainingQuickModalEditingEntryId);
+    if (entryIndex >= 0) {
+      entries[entryIndex] = {
+        ...entries[entryIndex],
+        valueInput: parsedValue.valueInput,
+        valueNormalized: parsedValue.normalizedValue,
+        meta: {
+          ...(entries[entryIndex].meta || {}),
+          source: "training_exam_quick",
+          countsForSportabzeichen: !!rule
+        },
+        updatedAt: new Date().toISOString()
+      };
+      entries.sort((left, right) => new Date(right.measuredAt).getTime() - new Date(left.measuredAt).getTime());
+      setPerformanceEntries(athlete, storageKey, entries);
+      saveResult = {
+        ok: true,
+        valueInput: parsedValue.valueInput,
+        updated: true
+      };
+    } else {
+      trainingQuickModalEditingEntryId = "";
+    }
+  }
+
+  if (!saveResult) {
+    saveResult = appendPerformanceEntryForRule(athlete, inputRule, rawDraftValue, new Date().toISOString(), {
+      source: "training_exam_quick",
+      countsForSportabzeichen: !!rule
+    });
+  }
 
   if (!saveResult.ok) {
     showToast(saveResult.message || "Leistung konnte nicht gespeichert werden.");
@@ -5379,9 +10663,14 @@ function saveTrainingQuickPerformance(athleteId) {
 
   clearTrainingInputDraftValue(selectedDiscipline.id, normalizedAthleteId);
   clearTrainingAttemptDraftValues(selectedDiscipline.id, normalizedAthleteId);
+  trainingQuickModalEditingEntryId = "";
   saveAthletes();
   refreshAthleteViews();
-  showToast(`Leistung gespeichert: ${saveResult.valueInput}`);
+  showToast(
+    saveResult.updated
+      ? `Leistung aktualisiert: ${saveResult.valueInput}`
+      : (rule ? `Leistung gespeichert: ${saveResult.valueInput}` : `Leistung gespeichert ohne DSA-Wertung: ${saveResult.valueInput}`)
+  );
 }
 
 function renderTrainingExamPane(selectedDiscipline = getSelectedTrainingDiscipline()) {
@@ -5399,222 +10688,29 @@ function renderTrainingExamPane(selectedDiscipline = getSelectedTrainingDiscipli
     trainingExamPane.append(empty);
     return;
   }
-
-  const isTimedDiscipline = ["time_mm_ss", "time_seconds"].includes(selectedDiscipline.unitType);
   const modeCard = document.createElement("section");
   modeCard.className = "training-mode-card";
 
   const titleWrap = document.createElement("div");
   titleWrap.className = "training-mode-title";
   const title = document.createElement("h3");
-  title.textContent = selectedDiscipline.disciplineName;
+  title.textContent = selectedDiscipline.title || selectedDiscipline.disciplineName;
   titleWrap.append(title);
   modeCard.append(titleWrap);
 
+  const executionOptions = getTrainingExecutionOptions(selectedDiscipline.id);
+  let selectedExecutionKey = getSelectedTrainingExecutionKey(selectedDiscipline.id, executionOptions);
+  if (executionOptions.length > 1 && !selectedExecutionKey) {
+    setTrainingSelectedExecution(selectedDiscipline.id, TRAINING_EXECUTION_INDIVIDUAL_KEY, { renderView: false });
+    selectedExecutionKey = TRAINING_EXECUTION_INDIVIDUAL_KEY;
+  }
+  const selectedExecutionOption = getSelectedTrainingExecutionOption(selectedDiscipline.id, executionOptions);
+  const executionSelector = createTrainingExecutionSelector(selectedDiscipline, executionOptions, { includeIndividualMode: true });
+  if (executionSelector) {
+    modeCard.append(executionSelector);
+  }
+
   const athleteRows = getTrainingAthleteRows(selectedDiscipline.id);
-  const eligibleAthleteCount = athleteRows.filter((row) => !!row.rule).length;
-  const session = getTrainingExamSession(selectedDiscipline.id, { create: false });
-  const markedAthleteIdSet = getTrainingMarkedAthleteIdSet();
-  const runningAthleteIds = session
-    ? Object.entries(session.athletes || {})
-        .filter(([, athleteTimerState]) => !!athleteTimerState?.running)
-        .map(([athleteId]) => athleteId)
-    : [];
-  const runningAthleteIdSet = new Set(runningAthleteIds);
-  const runningAthleteCount = runningAthleteIds.length;
-  const markedRunningAthleteIds = Array.from(markedAthleteIdSet).filter((athleteId) => runningAthleteIdSet.has(athleteId));
-  const markedRunningAthleteCount = markedRunningAthleteIds.length;
-  const abortAllActionKey = createTrainingAbortActionKey("all", selectedDiscipline.id, runningAthleteIds);
-  const abortMarkedActionKey = createTrainingAbortActionKey("marked", selectedDiscipline.id, markedRunningAthleteIds);
-
-  const iconSvgByName = {
-    play: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 5v14l11-7Z" fill="currentColor"></path></svg>',
-    stop: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"></rect></svg>',
-    abort: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 7 17 17M17 7 7 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg>',
-    warning: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 4 8 15H4l8-15Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 9v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path><circle cx="12" cy="17" r="1" fill="currentColor"></circle></svg>',
-    markAll: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 7h9M9 12h9M9 17h9M4 7l1.4 1.4L7.6 6.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>',
-    markRunning: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="13" r="7" stroke="currentColor" stroke-width="2"></circle><path d="M12 13V9M12 13l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M9 3h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>',
-    markNone: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"></circle><path d="M8 8 16 16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg>',
-    users: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7.5 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM16.5 11a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM3 18.5a4.5 4.5 0 0 1 9 0M14 18.5a3.6 3.6 0 0 1 7 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>',
-    running: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="13" r="7" stroke="currentColor" stroke-width="2"></circle><path d="M12 13V9M12 13l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M9 3h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>',
-    checked: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"></circle><path d="m8 12 2.6 2.6L16 9.2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>',
-    dual: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="9" cy="12" r="5" stroke="currentColor" stroke-width="2"></circle><circle cx="16" cy="12" r="5" stroke="currentColor" stroke-width="2"></circle></svg>',
-    scopeAll: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="2"></circle><path d="M5 12h14M12 5a11 11 0 0 1 0 14M12 5a11 11 0 0 0 0 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>',
-    scopeMarked: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="2"></circle><path d="m8.4 12 2.2 2.2 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>'
-  };
-
-  const createActionIconElement = (iconName, extraClassName = "") => {
-    const icon = document.createElement("span");
-    icon.className = `training-action-icon${extraClassName ? ` ${extraClassName}` : ""}`;
-    icon.setAttribute("aria-hidden", "true");
-    icon.innerHTML = iconSvgByName[iconName] || iconSvgByName.play;
-    return icon;
-  };
-
-  const createIconButton = ({
-    action,
-    athleteId = "",
-    iconName,
-    label,
-    className,
-    disabled = false,
-    pending = false,
-    scopeIconName = ""
-  }) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = className;
-    button.dataset.trainingAction = action;
-    if (athleteId) {
-      button.dataset.athleteId = athleteId;
-    }
-    button.disabled = !!disabled;
-    if (pending) {
-      button.classList.add("is-pending-confirm");
-    }
-    button.title = label;
-    button.setAttribute("aria-label", label);
-
-    const iconStack = document.createElement("span");
-    iconStack.className = "training-action-icon-stack";
-    iconStack.append(createActionIconElement(iconName));
-    if (scopeIconName) {
-      iconStack.append(createActionIconElement(scopeIconName, "training-action-icon--scope"));
-    }
-
-    button.append(iconStack);
-    return button;
-  };
-
-  const createIconStat = (iconName, value, label, styleVariant = "") => {
-    const stat = document.createElement("span");
-    stat.className = "training-mark-stat";
-    if (styleVariant) {
-      stat.classList.add(`training-mark-stat--${styleVariant}`);
-    }
-    stat.title = `${label}: ${value}`;
-    stat.setAttribute("aria-label", `${label}: ${value}`);
-    stat.append(createActionIconElement(iconName), document.createTextNode(String(value)));
-    return stat;
-  };
-
-  const runningHotkeyIndexMap = new Map();
-  let runningHotkeySlot = 1;
-  for (const row of athleteRows) {
-    if (runningHotkeySlot > 9) {
-      break;
-    }
-
-    if (!runningAthleteIdSet.has(row.athlete.id)) {
-      continue;
-    }
-
-    runningHotkeyIndexMap.set(row.athlete.id, runningHotkeySlot);
-    runningHotkeySlot += 1;
-  }
-
-  if (isTimedDiscipline) {
-    const markToolbar = document.createElement("div");
-    markToolbar.className = "training-mark-toolbar";
-
-    const markActions = document.createElement("div");
-    markActions.className = "training-mark-actions";
-    markActions.append(
-      createIconButton({
-        action: "mark-all-visible",
-        iconName: "markAll",
-        label: "Alle sichtbaren Athleten markieren",
-        className: "training-mark-btn",
-        disabled: athleteRows.length <= 0
-      }),
-      createIconButton({
-        action: "mark-running-visible",
-        iconName: "markRunning",
-        label: "Alle laufenden Athleten markieren",
-        className: "training-mark-btn",
-        disabled: runningAthleteCount <= 0
-      }),
-      createIconButton({
-        action: "mark-none-visible",
-        iconName: "markNone",
-        label: "Markierung loeschen",
-        className: "training-mark-btn",
-        disabled: markedAthleteIdSet.size <= 0
-      })
-    );
-
-    const markStats = document.createElement("div");
-    markStats.className = "training-mark-stats";
-    markStats.append(
-      createIconStat("users", athleteRows.length, "Athleten"),
-      createIconStat("running", runningAthleteCount, "Laufend", runningAthleteCount > 0 ? "active" : ""),
-      createIconStat("checked", markedAthleteIdSet.size, "Markiert", markedAthleteIdSet.size > 0 ? "marked" : ""),
-      createIconStat("dual", markedRunningAthleteCount, "Markiert laufend", markedRunningAthleteCount > 0 ? "active" : "")
-    );
-
-    markToolbar.append(markActions, markStats);
-    modeCard.append(markToolbar);
-
-    const abortAllPending = isTrainingAbortConfirmPending(abortAllActionKey);
-    const abortMarkedPending = isTrainingAbortConfirmPending(abortMarkedActionKey);
-
-    const bottomControls = document.createElement("div");
-    bottomControls.className = "training-bottom-controls";
-    bottomControls.append(
-      createIconButton({
-        action: "start-all-timing",
-        iconName: "play",
-        scopeIconName: "scopeAll",
-        label: "Alle Athleten starten",
-        className: "training-control-icon-btn training-control-icon-btn--start",
-        disabled: eligibleAthleteCount <= 0
-      }),
-      createIconButton({
-        action: "stop-all-timing",
-        iconName: "stop",
-        scopeIconName: "scopeAll",
-        label: "Alle Athleten stoppen und speichern",
-        className: "training-control-icon-btn training-control-icon-btn--stop",
-        disabled: runningAthleteCount <= 0
-      }),
-      createIconButton({
-        action: "abort-all-timing",
-        iconName: abortAllPending ? "warning" : "abort",
-        scopeIconName: "scopeAll",
-        label: abortAllPending ? "Erneut tippen: alle Starts abbrechen" : "Alle laufenden Starts abbrechen",
-        className: "training-control-icon-btn training-control-icon-btn--abort",
-        disabled: runningAthleteCount <= 0,
-        pending: abortAllPending
-      }),
-      createIconButton({
-        action: "start-marked-timing",
-        iconName: "play",
-        scopeIconName: "scopeMarked",
-        label: "Markierte Athleten starten",
-        className: "training-control-icon-btn training-control-icon-btn--start training-control-icon-btn--marked",
-        disabled: markedAthleteIdSet.size <= 0
-      }),
-      createIconButton({
-        action: "stop-marked-timing",
-        iconName: "stop",
-        scopeIconName: "scopeMarked",
-        label: "Markierte Athleten stoppen und speichern",
-        className: "training-control-icon-btn training-control-icon-btn--stop training-control-icon-btn--marked",
-        disabled: markedRunningAthleteCount <= 0
-      }),
-      createIconButton({
-        action: "abort-marked-timing",
-        iconName: abortMarkedPending ? "warning" : "abort",
-        scopeIconName: "scopeMarked",
-        label: abortMarkedPending ? "Erneut tippen: markierte Starts abbrechen" : "Markierte laufende Starts abbrechen",
-        className: "training-control-icon-btn training-control-icon-btn--abort training-control-icon-btn--marked",
-        disabled: markedRunningAthleteCount <= 0,
-        pending: abortMarkedPending
-      })
-    );
-
-    mountTrainingExamGlobalControls(bottomControls);
-  }
 
   if (athleteRows.length === 0) {
     const empty = document.createElement("p");
@@ -5633,33 +10729,21 @@ function renderTrainingExamPane(selectedDiscipline = getSelectedTrainingDiscipli
     const item = document.createElement("li");
     item.className = "training-athlete-item";
     item.classList.add(`training-athlete-item--${getLevelCssSuffix(row.bestLevel)}`);
-    if (isTimedDiscipline) {
-      item.classList.add("is-timed");
+    if (!row.isActiveToday) {
+      item.classList.add("is-deactivated");
     }
 
     const athleteMain = document.createElement("div");
     athleteMain.className = "training-athlete-main";
+
+    const activeInputRule = row.inputRule || row.rule;
+    const shouldShowExecutionPerAthlete = selectedExecutionKey === TRAINING_EXECUTION_INDIVIDUAL_KEY;
 
     const head = document.createElement("div");
     head.className = "training-athlete-head";
 
     const headLeft = document.createElement("div");
     headLeft.className = "training-athlete-head-left";
-
-    const shouldEnableMarking = isTimedDiscipline && !!row.rule;
-    const isMarked = shouldEnableMarking && markedAthleteIdSet.has(row.athlete.id);
-    if (isMarked) {
-      item.classList.add("is-marked");
-    }
-
-    if (shouldEnableMarking) {
-      item.dataset.trainingAction = "toggle-athlete-mark";
-      item.dataset.athleteId = row.athlete.id;
-      item.tabIndex = 0;
-      item.setAttribute("role", "button");
-      item.setAttribute("aria-pressed", isMarked ? "true" : "false");
-      item.setAttribute("aria-label", `${athleteDisplayName(row.athlete) || "Athlet"} markieren`);
-    }
 
     const name = document.createElement("span");
     name.className = "training-athlete-name";
@@ -5669,201 +10753,70 @@ function renderTrainingExamPane(selectedDiscipline = getSelectedTrainingDiscipli
     code.className = "training-athlete-age";
     code.textContent = athleteCode(row.athlete);
 
+    const bestInline = document.createElement("span");
+    bestInline.className = "training-athlete-best-inline";
+    bestInline.textContent = `Best: ${row.bestValue}`;
+
+    let executionInline = null;
+    if (shouldShowExecutionPerAthlete) {
+      const executionText = resolveTrainingExecutionText(activeInputRule || selectedExecutionOption?.rule);
+      if (executionText) {
+        executionInline = document.createElement("span");
+        executionInline.className = "training-athlete-execution-inline";
+        executionInline.textContent = executionText;
+      }
+    }
+
     const nameRow = document.createElement("div");
     nameRow.className = "training-athlete-name-row";
     nameRow.append(name, code);
+    if (executionInline) {
+      nameRow.append(executionInline);
+    }
+    nameRow.append(bestInline);
     headLeft.append(nameRow);
 
     const headRight = document.createElement("div");
     headRight.className = "training-athlete-head-right";
 
-    if (shouldEnableMarking) {
-      const markedIndicator = document.createElement("span");
-      markedIndicator.className = "training-athlete-mark-indicator";
-      if (isMarked) {
-        markedIndicator.classList.add("is-marked");
-      }
-      markedIndicator.append(createActionIconElement(isMarked ? "checked" : "scopeMarked", "training-action-icon--tiny"));
-      headRight.append(markedIndicator);
-    }
-
-    const runningHotkeySlot = isTimedDiscipline ? runningHotkeyIndexMap.get(row.athlete.id) : 0;
-    if (Number.isInteger(runningHotkeySlot) && runningHotkeySlot > 0) {
-      const hotkeyBadge = document.createElement("span");
-      hotkeyBadge.className = "training-hotkey-badge";
-      hotkeyBadge.textContent = `Alt+${runningHotkeySlot}`;
-      headRight.append(hotkeyBadge);
+    if (!row.isActiveToday) {
+      const deactivatedChip = document.createElement("span");
+      deactivatedChip.className = "training-athlete-deactivated-chip";
+      deactivatedChip.textContent = "Deaktiviert";
+      headRight.append(deactivatedChip);
     }
 
     head.append(headLeft, headRight);
     athleteMain.append(head);
 
+    item.dataset.trainingAction = "open-athlete-quick-entry";
+    item.dataset.athleteId = row.athlete.id;
+    item.tabIndex = 0;
+    item.setAttribute("role", "button");
+    item.setAttribute("aria-label", `${athleteDisplayName(row.athlete) || "Athlet"} Leistung eingeben`);
+
     if (!row.rule) {
       item.classList.add("is-no-requirement");
       const missing = document.createElement("p");
       missing.className = "training-athlete-meta";
-      missing.textContent = "Keine passende Anforderung fuer die Altersgruppe.";
+      missing.textContent = "Angabe kann fuer das Sportabzeichen nicht beruecksichtigt werden.";
       athleteMain.append(missing);
-      item.append(athleteMain);
-      list.append(item);
-      continue;
-    }
-
-    const requirementRow = document.createElement("div");
-    requirementRow.className = "training-requirement-row";
-    requirementRow.append(
-      createTrainingRequirementChipElement("Bronze", row.rule.thresholdsRaw?.bronze),
-      createTrainingRequirementChipElement("Silber", row.rule.thresholdsRaw?.silver),
-      createTrainingRequirementChipElement("Gold", row.rule.thresholdsRaw?.gold)
-    );
-    athleteMain.append(requirementRow);
-
-    const executionText = resolveTrainingExecutionText(row.rule);
-    if (executionText !== "-" && executionText !== selectedDiscipline.detail) {
-      const execution = document.createElement("p");
-      execution.className = "training-execution-note";
-      execution.textContent = `Ausfuehrung: ${executionText}`;
-      athleteMain.append(execution);
-    }
-
-    const best = document.createElement("div");
-    best.className = "training-athlete-best";
-    best.textContent = `Bestleistung: ${row.bestValue}`;
-    if (row.bestLevel !== "-") {
-      const bestLevel = document.createElement("span");
-      bestLevel.className = "training-athlete-best-level";
-      bestLevel.textContent = row.bestLevel;
-      best.append(bestLevel);
-    }
-    athleteMain.append(best);
-
-    const actions = document.createElement("div");
-    actions.className = "training-athlete-actions";
-
-    if (isTimedDiscipline) {
-      actions.classList.add("training-athlete-actions--timed");
-
-      const athleteTimerState =
-        getTrainingExamAthleteState(session, row.athlete.id, { create: false }) ||
-        {
-          running: false,
-          startMarker: null,
-          lastElapsedMs: 0,
-          lastMeasuredAt: ""
-        };
-      const isRunning = !!athleteTimerState?.running;
-      if (isRunning) {
-        item.classList.add("is-running");
-        actions.classList.add("is-running");
-      }
-
-      const displayedElapsed = isRunning
-        ? getElapsedMsSinceTrainingMarker(athleteTimerState.startMarker)
-        : Number(athleteTimerState?.lastElapsedMs || 0);
-
-      const actionButton = createIconButton({
-        action: isRunning ? "stop-athlete-timing" : "start-athlete-timing",
-        athleteId: row.athlete.id,
-        iconName: isRunning ? "stop" : "play",
-        label: isRunning ? "Stopp und automatisch speichern" : "Starten",
-        className: `training-athlete-action-btn training-athlete-action-btn--${isRunning ? "stop" : "start"}`
-      });
-
-      const timerValue = document.createElement("span");
-      timerValue.className = "training-timer-value training-athlete-action-time";
-      timerValue.dataset.athleteId = row.athlete.id;
-      timerValue.textContent = Number.isFinite(displayedElapsed) && displayedElapsed > 0 ? formatTrainingElapsedForRule(row.rule, displayedElapsed) : "--:--";
-      actionButton.append(timerValue);
-      actions.append(actionButton);
-
-      if (isRunning) {
-        const athleteAbortActionKey = createTrainingAbortActionKey("athlete", selectedDiscipline.id, [row.athlete.id]);
-        const athleteAbortPending = isTrainingAbortConfirmPending(athleteAbortActionKey);
-        const abortButton = createIconButton({
-          action: "abort-athlete-timing",
-          athleteId: row.athlete.id,
-          iconName: athleteAbortPending ? "warning" : "abort",
-          label: athleteAbortPending ? "Erneut tippen zum Abbrechen" : "Start abbrechen",
-          className: "training-athlete-inline-btn training-athlete-inline-btn--abort",
-          pending: athleteAbortPending
-        });
-        actions.append(abortButton);
-      }
-
-      if (!isRunning && Number(athleteTimerState?.lastElapsedMs || 0) > 0 && athleteTimerState?.lastMeasuredAt) {
-        const lastTimeInfo = document.createElement("p");
-        lastTimeInfo.className = "training-athlete-meta";
-        lastTimeInfo.textContent = `Zuletzt gestoppt: ${formatDateTime(athleteTimerState.lastMeasuredAt)}`;
-        athleteMain.append(lastTimeInfo);
-      }
     } else {
-      const isThreeOfFourPoints = isTrainingThreeOfFourPointsRule(row.rule);
-      if (isThreeOfFourPoints) {
-        const attemptsGrid = document.createElement("div");
-        attemptsGrid.className = "training-attempt-grid";
-
-        for (let attemptIndex = 1; attemptIndex <= 4; attemptIndex += 1) {
-          const attemptInput = document.createElement("input");
-          attemptInput.type = "text";
-          attemptInput.className = "training-quick-attempt-input";
-          attemptInput.placeholder = `Sprung ${attemptIndex}`;
-          attemptInput.dataset.trainingAction = "quick-attempt-input";
-          attemptInput.dataset.athleteId = row.athlete.id;
-          attemptInput.dataset.attemptIndex = String(attemptIndex);
-          attemptInput.inputMode = "decimal";
-          attemptInput.value = getTrainingAttemptDraftValue(selectedDiscipline.id, row.athlete.id, attemptIndex);
-          attemptsGrid.append(attemptInput);
-        }
-
-        athleteMain.append(attemptsGrid);
-
-        const autoTotal = getTrainingThreeOfFourAutoTotal(selectedDiscipline.id, row.athlete.id);
-        const autoTotalInfo = document.createElement("p");
-        autoTotalInfo.className = `training-athlete-meta training-attempt-note${autoTotal.ok ? "" : " is-warning"}`;
-        autoTotalInfo.textContent = autoTotal.ok
-          ? `Auto (beste 3): ${formatNumberInputValue(autoTotal.total)} Punkte`
-          : "3 von 4 Wertung: Entweder Gesamtpunkte eintragen oder mindestens 3 Spruenge erfassen.";
-        athleteMain.append(autoTotalInfo);
-      }
-
-      const quickInput = document.createElement("input");
-      quickInput.type = "text";
-      quickInput.className = "training-quick-input";
-      quickInput.placeholder = isThreeOfFourPoints ? "Gesamtpunkte (optional)" : performanceValuePlaceholder(row.rule);
-      quickInput.dataset.trainingAction = "quick-input";
-      quickInput.dataset.athleteId = row.athlete.id;
-      quickInput.inputMode = row.rule.unitType === "number" ? "decimal" : "text";
-      quickInput.value = getTrainingInputDraftValue(selectedDiscipline.id, row.athlete.id);
-      actions.append(quickInput);
-
-      const saveButton = document.createElement("button");
-      saveButton.type = "button";
-      saveButton.className = "training-athlete-main-btn training-athlete-main-btn--save";
-      saveButton.dataset.trainingAction = "save-quick-performance";
-      saveButton.dataset.athleteId = row.athlete.id;
-      saveButton.textContent = "Speichern";
-      actions.append(saveButton);
-
-      if (row.rule.unitType === "level") {
-        const levelButtons = document.createElement("div");
-        levelButtons.className = "training-quick-levels";
-
-        for (const level of ["Bronze", "Silber", "Gold"]) {
-          const levelButton = document.createElement("button");
-          levelButton.type = "button";
-          levelButton.className = "training-level-btn";
-          levelButton.dataset.trainingAction = "quick-level";
-          levelButton.dataset.athleteId = row.athlete.id;
-          levelButton.dataset.level = level;
-          levelButton.textContent = level;
-          levelButtons.append(levelButton);
-        }
-
-        athleteMain.append(levelButtons);
-      }
+      const requirementRow = document.createElement("div");
+      requirementRow.className = "training-requirement-row";
+      requirementRow.append(
+        createTrainingRequirementChipElement("Bronze", row.rule.thresholdsRaw?.bronze),
+        createTrainingRequirementChipElement("Silber", row.rule.thresholdsRaw?.silver),
+        createTrainingRequirementChipElement("Gold", row.rule.thresholdsRaw?.gold)
+      );
+      athleteMain.append(requirementRow);
     }
 
-    item.append(athleteMain, actions);
+    attachRightSwipeToggle(item, () => {
+      toggleAthleteActiveForToday(row.athlete.id, { showToast: true });
+    });
+
+    item.append(athleteMain);
     list.append(item);
   }
 
@@ -5888,6 +10841,7 @@ function renderTrainingView() {
   if (state.trainingViewMode !== "exam") {
     clearTrainingAbortConfirmState({ render: false });
     clearTrainingExamGlobalControls();
+    closeTrainingQuickEntryModal();
   }
 
   const catalog = getTrainingDisciplineCatalog();
@@ -5921,12 +10875,17 @@ function renderTrainingView() {
   }
 
   const selectedDiscipline = getSelectedTrainingDiscipline(catalog);
-  if (!selectedDiscipline && !isTrainingSplitLayout()) {
+  if (selectedDiscipline && ensureTrainingExecutionSelection(selectedDiscipline.id)) {
+    stateChanged = true;
+  }
+
+  const resolvedSelectedDiscipline = getSelectedTrainingDiscipline(catalog);
+  if (!resolvedSelectedDiscipline && !isTrainingSplitLayout()) {
     state.trainingCompactPane = "list";
   }
 
   if (trainingContentTitle) {
-    trainingContentTitle.textContent = selectedDiscipline ? selectedDiscipline.disciplineName : "Disziplin";
+    trainingContentTitle.textContent = resolvedSelectedDiscipline ? (resolvedSelectedDiscipline.title || resolvedSelectedDiscipline.disciplineName) : "Disziplin";
   }
 
   const visibleAthleteCount = getVisibleAthletes().length;
@@ -5935,7 +10894,7 @@ function renderTrainingView() {
       trainingSubtitle.hidden = true;
       trainingSubtitle.textContent = "";
     } else {
-      const disciplineLabel = selectedDiscipline ? selectedDiscipline.disciplineName : "Bitte Disziplin waehlen";
+      const disciplineLabel = resolvedSelectedDiscipline ? (resolvedSelectedDiscipline.title || resolvedSelectedDiscipline.disciplineName) : "Bitte Disziplin waehlen";
       trainingSubtitle.hidden = false;
       trainingSubtitle.textContent = `Anforderungsmodus | ${disciplineLabel} | ${visibleAthleteCount} Athlet${visibleAthleteCount === 1 ? "" : "en"} in Auswahl`;
     }
@@ -5946,11 +10905,11 @@ function renderTrainingView() {
   if (state.trainingViewMode === "exam") {
     trainingRequirementsPane.hidden = true;
     trainingExamPane.hidden = false;
-    renderTrainingExamPane(selectedDiscipline);
+    renderTrainingExamPane(resolvedSelectedDiscipline);
   } else {
     trainingRequirementsPane.hidden = false;
     trainingExamPane.hidden = true;
-    renderTrainingRequirementsPane(selectedDiscipline);
+    renderTrainingRequirementsPane(resolvedSelectedDiscipline);
     updateTrainingExamTicker();
   }
 
@@ -5963,18 +10922,17 @@ function renderAthletes() {
 
   if (requirementsViewButton) {
     requirementsViewButton.classList.toggle("is-active", state.requirementsInspectorOpen);
+    const visibleAthletes = getVisibleAthletes();
+    const allVisibleDeactivated = visibleAthletes.length > 0 && visibleAthletes.every((athlete) => !isAthleteActiveForToday(athlete.id));
+    requirementsViewButton.classList.toggle("is-all-deactivated", allVisibleDeactivated);
+    attachRightSwipeToggle(requirementsViewButton, () => {
+      toggleVisibleAthletesActiveForToday();
+    });
   }
 
   const selectedGroup = getSelectedGroup();
 
-  const sortedAthletes = [...getVisibleAthletes()].sort((left, right) => {
-    const byFirstName = left.firstName.localeCompare(right.firstName, "de");
-    if (byFirstName !== 0) {
-      return byFirstName;
-    }
-
-    return left.lastName.localeCompare(right.lastName, "de");
-  });
+  const sortedAthletes = [...getVisibleAthletes()].sort((left, right) => compareAthletesByDailyActiveAndName(left, right));
 
   for (const athlete of sortedAthletes) {
     const listItem = document.createElement("li");
@@ -5989,11 +10947,20 @@ function renderAthletes() {
     trigger.className = "athlete-card-btn";
     trigger.dataset.athleteId = athlete.id;
 
+    const isActiveToday = isAthleteActiveForToday(athlete.id);
+    if (!isActiveToday) {
+      listItem.classList.add("is-deactivated");
+    }
+
     const main = document.createElement("div");
     main.className = "athlete-main";
 
     const name = document.createElement("h3");
     name.textContent = athleteDisplayName(athlete) || "Unbenannter Athlet";
+    const listWarningIndicator = createAthleteWarningIndicator(athlete);
+    if (listWarningIndicator) {
+      name.append(" ", listWarningIndicator);
+    }
 
     const requirementGroup = getRequirementGroupForAthlete(athlete);
     const categoryLevels = getAthleteCategoryLevels(athlete, requirementGroup);
@@ -6048,7 +11015,23 @@ function renderAthletes() {
     }
 
     main.append(name);
+    if (!isActiveToday) {
+      const deactivatedNote = document.createElement("p");
+      deactivatedNote.className = "athlete-deactivated-note";
+      deactivatedNote.textContent = "Deaktiviert heute";
+      main.append(deactivatedNote);
+    }
     main.append(statusIcons);
+
+    if (!isActiveToday) {
+      const baseTitle = normalizeText(trigger.title);
+      trigger.title = baseTitle ? `${baseTitle} • Deaktiviert fuer heute` : "Deaktiviert fuer heute";
+    }
+
+    attachRightSwipeToggle(trigger, () => {
+      toggleAthleteActiveForToday(athlete.id, { showToast: true });
+    });
+
     trigger.append(main, side);
     listItem.append(trigger);
     athleteList.append(listItem);
@@ -6211,7 +11194,16 @@ function applyAthleteGroupAssignments(athleteId, selectedGroupIds = []) {
 function resetAthleteForm() {
   athleteForm.reset();
   setAthleteGenderSelection("M");
+  if (athleteForm.elements.birthInput) {
+    athleteForm.elements.birthInput.value = "";
+  }
   athleteForm.elements.country.value = "Deutschland";
+  if (athleteForm.elements.emergencyEmails) {
+    athleteForm.elements.emergencyEmails.value = "";
+  }
+  if (athleteForm.elements.emergencyPhones) {
+    athleteForm.elements.emergencyPhones.value = "";
+  }
   renderAthleteGroupSelection(getDefaultAthleteGroupSelectionForCreate());
 }
 
@@ -6219,11 +11211,19 @@ function fillAthleteForm(athlete) {
   athleteForm.elements.firstName.value = athlete.firstName;
   athleteForm.elements.lastName.value = athlete.lastName;
   setAthleteGenderSelection(athlete.gender);
-  athleteForm.elements.birthDate.value = athlete.birthDate;
+  if (athleteForm.elements.birthInput) {
+    athleteForm.elements.birthInput.value = normalizeText(athlete.birthDate);
+  }
   athleteForm.elements.dsaId.value = athlete.dsaId;
   athleteForm.elements.zip.value = athlete.zip;
   athleteForm.elements.city.value = athlete.city;
   athleteForm.elements.country.value = athlete.country;
+  if (athleteForm.elements.emergencyEmails) {
+    athleteForm.elements.emergencyEmails.value = normalizeEmergencyEmailList(athlete.emergencyEmails).join("; ");
+  }
+  if (athleteForm.elements.emergencyPhones) {
+    athleteForm.elements.emergencyPhones.value = normalizeEmergencyPhoneList(athlete.emergencyPhones).join("; ");
+  }
   renderAthleteGroupSelection(getGroupIdsForAthlete(athlete.id));
 }
 
@@ -6603,15 +11603,86 @@ function closeAthleteModal() {
   deleteAthleteButton.hidden = true;
 }
 
+function closeEmergencyContactsModal() {
+  if (!emergencyContactsModal) {
+    return;
+  }
+
+  emergencyContactsModal.hidden = true;
+  updateBodyScrollLock();
+}
+
+function openEmergencyContactsModal() {
+  const athlete = getSelectedAthlete();
+  if (!athlete) {
+    showToast("Bitte zuerst einen Athleten waehlen.");
+    return;
+  }
+
+  const contacts = getAthleteEmergencyContacts(athlete);
+  if (contacts.emails.length === 0 && contacts.phones.length === 0) {
+    showToast("Keine Kontakte vorhanden.");
+    return;
+  }
+
+  if (emergencyContactsMeta) {
+    emergencyContactsMeta.textContent = athleteDisplayName(athlete);
+  }
+
+  if (emergencyContactsList) {
+    emergencyContactsList.innerHTML = "";
+
+    for (const phone of contacts.phones) {
+      const row = document.createElement("div");
+      row.className = "emergency-contact-row";
+
+      const value = document.createElement("span");
+      value.className = "emergency-contact-value";
+      value.textContent = phone;
+
+      const action = document.createElement("a");
+      action.className = "ghost-btn emergency-contact-action";
+      action.href = `tel:${phone.replace(/\s+/g, "")}`;
+      action.textContent = "Anrufen";
+
+      row.append(value, action);
+      emergencyContactsList.append(row);
+    }
+
+    for (const email of contacts.emails) {
+      const row = document.createElement("div");
+      row.className = "emergency-contact-row";
+
+      const value = document.createElement("span");
+      value.className = "emergency-contact-value";
+      value.textContent = email;
+
+      const action = document.createElement("a");
+      action.className = "ghost-btn emergency-contact-action";
+      action.href = `mailto:${email}`;
+      action.textContent = "Mail schreiben";
+
+      row.append(value, action);
+      emergencyContactsList.append(row);
+    }
+  }
+
+  if (emergencyContactsModal) {
+    emergencyContactsModal.hidden = false;
+    updateBodyScrollLock();
+  }
+}
+
 function buildAthleteFromFormData(formData, existingAthlete = null) {
   const now = new Date().toISOString();
+  const normalizedBirthDate = normalizeBirthInput(formData.get("birthInput"));
 
   return {
     id: existingAthlete ? existingAthlete.id : createId(),
     firstName: normalizeText(formData.get("firstName")),
     lastName: normalizeText(formData.get("lastName")),
     gender: formData.get("gender") === "W" ? "W" : "M",
-    birthDate: normalizeText(formData.get("birthDate")),
+    birthDate: normalizedBirthDate,
     dsaId: normalizeText(formData.get("dsaId")),
     associationBadgeId: normalizeText(existingAthlete?.associationBadgeId),
     associationBadgeLevel: normalizeText(existingAthlete?.associationBadgeLevel),
@@ -6621,6 +11692,9 @@ function buildAthleteFromFormData(formData, existingAthlete = null) {
     zip: normalizeText(formData.get("zip")),
     city: normalizeText(formData.get("city")),
     country: normalizeText(formData.get("country")) || "Deutschland",
+    email: normalizeText(existingAthlete?.email),
+    emergencyEmails: normalizeEmergencyEmailList(formData.get("emergencyEmails")),
+    emergencyPhones: normalizeEmergencyPhoneList(formData.get("emergencyPhones")),
     createdAt: existingAthlete ? existingAthlete.createdAt : now,
     performances: existingAthlete ? existingAthlete.performances || {} : {},
     updatedAt: now
@@ -6628,8 +11702,12 @@ function buildAthleteFromFormData(formData, existingAthlete = null) {
 }
 
 function validateAthlete(athlete, excludedAthleteId = "") {
-  if (!athlete.firstName || !athlete.lastName || !athlete.birthDate) {
-    return "Bitte fuelle Vorname, Nachname, Geschlecht und Geburtsdatum aus.";
+  if (!normalizeText(athlete.firstName) || !normalizeText(athlete.lastName)) {
+    return "Bitte Vorname und Nachname angeben.";
+  }
+
+  if (!extractBirthYear(athlete.birthDate)) {
+    return "Bitte gib eine gueltige Geburtsangabe an (Jahr oder Datum).";
   }
 
   if (!["M", "W"].includes(athlete.gender)) {
@@ -6649,6 +11727,8 @@ function validateAthlete(athlete, excludedAthleteId = "") {
 
 function handleAthleteSubmit(event) {
   event.preventDefault();
+
+  normalizeAthleteFormInputsInPlace();
 
   const existingAthlete = state.formMode === "edit" ? getSelectedAthlete() : null;
   const selectedGroupIds = getSelectedAthleteGroupIdsFromForm();
@@ -7900,15 +12980,104 @@ function getDisciplineDescriptorByStorageKey(athlete, group, ruleStorageKey) {
   }
 
   const rule = getRuleByStorageKey(group, ruleStorageKey);
-  if (!rule) {
+  if (rule) {
+    return {
+      ...rule,
+      kind: "standard",
+      storageKey: getRuleStorageKey(rule)
+    };
+  }
+
+  // Allow selecting non-DSA execution variants (manual rules) from athlete profile cards.
+  const normalizedRuleStorageKey = normalizeText(ruleStorageKey);
+  if (!normalizedRuleStorageKey || !athlete) {
     return null;
   }
 
-  return {
-    ...rule,
-    kind: "standard",
-    storageKey: getRuleStorageKey(rule)
-  };
+  const selectedDiscipline = getTrainingDisciplineCatalog().find((discipline) => {
+    const executionOptions = getTrainingExecutionOptions(discipline.id);
+    return executionOptions.some((executionOption) => {
+      const manualRule = createTrainingManualEntryRule(discipline, executionOption);
+      return !!manualRule && getRuleStorageKey(manualRule) === normalizedRuleStorageKey;
+    });
+  }) || null;
+
+  if (!selectedDiscipline) {
+    return null;
+  }
+
+  const executionOptions = getTrainingExecutionOptions(selectedDiscipline.id);
+  for (const executionOption of executionOptions) {
+    const manualRule = createTrainingManualEntryRule(selectedDiscipline, executionOption);
+    if (!manualRule || getRuleStorageKey(manualRule) !== normalizedRuleStorageKey) {
+      continue;
+    }
+
+    const athleteRule = getTrainingRuleForAthlete(athlete, selectedDiscipline.id, executionOption.key).rule;
+    const resolvedRule = athleteRule || manualRule;
+    return {
+      ...resolvedRule,
+      kind: "standard",
+      storageKey: getRuleStorageKey(resolvedRule)
+    };
+  }
+
+  return null;
+}
+
+function getStandardDisciplineIdFromDescriptor(descriptor) {
+  if (!descriptor || descriptor.kind !== "standard") {
+    return "";
+  }
+
+  return getTrainingDisciplineIdFromRule(descriptor);
+}
+
+function getStandardExecutionDescriptorsForAthlete(athlete, group, descriptor) {
+  const disciplineId = getStandardDisciplineIdFromDescriptor(descriptor);
+  if (!disciplineId || !athlete) {
+    return [];
+  }
+
+  const byStorageKey = new Map();
+  const selectedDiscipline = getTrainingDisciplineCatalog().find((entry) => entry.id === disciplineId) || null;
+  const executionOptions = getTrainingExecutionOptions(disciplineId);
+
+  for (const executionOption of executionOptions) {
+    const dsaRule = getTrainingRuleForAthlete(athlete, disciplineId, executionOption.key).rule;
+    const descriptorRule = dsaRule || (selectedDiscipline ? createTrainingManualEntryRule(selectedDiscipline, executionOption) : null);
+    if (!descriptorRule) {
+      continue;
+    }
+
+    const standardDescriptor = {
+      ...descriptorRule,
+      kind: "standard",
+      storageKey: getRuleStorageKey(descriptorRule),
+      isDsaOption: !!dsaRule,
+      executionKey: executionOption.key
+    };
+    byStorageKey.set(standardDescriptor.storageKey, standardDescriptor);
+  }
+
+  if (group && Array.isArray(group.disciplines)) {
+    for (const rule of group.disciplines) {
+      if (getTrainingDisciplineIdFromRule(rule) !== disciplineId) {
+        continue;
+      }
+
+      const standardDescriptor = {
+        ...rule,
+        kind: "standard",
+        storageKey: getRuleStorageKey(rule),
+        isDsaOption: true,
+        executionKey: getTrainingExecutionOptionKey(rule)
+      };
+      byStorageKey.set(standardDescriptor.storageKey, standardDescriptor);
+    }
+  }
+
+  return Array.from(byStorageKey.values()).sort((left, right) => resolveTrainingExecutionText(left).localeCompare(resolveTrainingExecutionText(right), "de"));
 }
 
 function getPerformanceEntries(athlete, ruleStorageKey) {
@@ -8138,8 +13307,11 @@ function renderAthleteCategoryStatusRow(categoryLevels) {
     }
 
     const level = categoryLevels[categoryName] || "-";
-    const item = document.createElement("span");
+    const item = document.createElement("button");
+    item.type = "button";
     item.className = "category-status-item";
+    item.dataset.category = categoryName;
+    item.title = `${categoryName} anzeigen`;
 
     const icon = createStatusIconElement(categoryName, level);
     icon.classList.add("status-icon--tiny");
@@ -8908,11 +14080,14 @@ function groupDisciplinesByCategory(disciplines) {
 }
 
 function getRuleByStorageKey(group, ruleStorageKey) {
-  if (!group || !Array.isArray(group.disciplines)) {
-    return null;
+  if (group && Array.isArray(group.disciplines)) {
+    const groupedRule = group.disciplines.find((discipline) => getRuleStorageKey(discipline) === ruleStorageKey) || null;
+    if (groupedRule) {
+      return groupedRule;
+    }
   }
 
-  return group.disciplines.find((discipline) => getRuleStorageKey(discipline) === ruleStorageKey) || null;
+  return getAllCustomDisciplineRules().find((discipline) => getRuleStorageKey(discipline) === ruleStorageKey) || null;
 }
 
 function renderDisciplineInfoCard(message) {
@@ -8930,11 +14105,56 @@ function renderDisciplineInfoCard(message) {
 }
 
 function splitDisciplineDisplay(rule) {
-  const name = normalizeText(rule.disciplineName);
+  const name = normalizeText(rule.disciplineName).replace(/(\d)\s*,\s*(\d)/g, "$1,$2");
+  const explicitVariant = normalizeText(rule?.disciplineVariant);
   if (!name) {
     return {
       title: "Unbekannte Disziplin",
       detail: ""
+    };
+  }
+
+  if (/^gerätturnen\b/i.test(name)) {
+    const detailFromName = normalizeText(name.replace(/^gerätturnen\b/i, "")).replace(/^[-–,:]/, "").trim();
+    return {
+      title: "Gerätturnen",
+      detail: explicitVariant || detailFromName
+    };
+  }
+
+  if (/^seilspringen\b/i.test(name)) {
+    const detailFromName = normalizeText(name.replace(/^seilspringen\b/i, "")).replace(/^[-–,:]/, "").trim();
+    return {
+      title: "Seilspringen",
+      detail: explicitVariant || detailFromName
+    };
+  }
+
+  if (/^koordinationsleiter\b/i.test(name)) {
+    const detailFromName = normalizeText(name.replace(/^koordinationsleiter\b/i, "")).replace(/^[-–,:]/, "").trim().replace(/^\((.*)\)$/, "$1");
+    return {
+      title: "Koordinationsleiter",
+      detail: explicitVariant || detailFromName
+    };
+  }
+
+  if (/^erweiterte\s*kraft\s*katalog\b/i.test(name) || /^erweitertekraftkatalog\b/i.test(name)) {
+    const detailFromName = normalizeText(name
+      .replace(/^erweiterte\s*kraft\s*katalog\b/i, "")
+      .replace(/^erweitertekraftkatalog\b/i, ""))
+      .replace(/^[-–,:]/, "")
+      .trim();
+    return {
+      title: "ErweiterteKraftKatalog Übungen",
+      detail: explicitVariant || detailFromName
+    };
+  }
+
+  const kilometerRunMatch = name.match(/^(\d+[\d.,]*)\s*km\s+Lauf$/i);
+  if (kilometerRunMatch) {
+    return {
+      title: "Laufen",
+      detail: `${normalizeText(kilometerRunMatch[1]).replace(/\s+/g, "")} km`
     };
   }
 
@@ -8946,9 +14166,12 @@ function splitDisciplineDisplay(rule) {
 
     const previousChar = name[index - 1] || "";
     const nextChar = name[index + 1] || "";
+    const following = name.slice(index + 1);
+    const nextNonSpaceChar = following.replace(/^\s+/, "")[0] || "";
     const isDecimalComma = /\d/.test(previousChar) && /\d/.test(nextChar);
+    const isDecimalCommaWithSpace = /\d/.test(previousChar) && /\d/.test(nextNonSpaceChar);
 
-    if (isDecimalComma) {
+    if (isDecimalComma || isDecimalCommaWithSpace) {
       continue;
     }
 
@@ -8965,9 +14188,18 @@ function splitDisciplineDisplay(rule) {
 
   const metricMatch = name.match(/^(.*?)(\b\d+[\d,.]*\s?(?:m|km|gr|kg|s)\b.*)$/i);
   if (metricMatch && normalizeText(metricMatch[1])) {
+    const rawTitle = normalizeText(metricMatch[1]);
+    const normalizedTitle = /^walking\/nordic-walking$/i.test(rawTitle) ? "Nordic-Walking" : rawTitle;
     return {
-      title: normalizeText(metricMatch[1]),
-      detail: normalizeText(metricMatch[2])
+      title: normalizedTitle,
+      detail: normalizeText(metricMatch[2]).replace(/(\d)\s*,\s*(\d)/g, "$1,$2")
+    };
+  }
+
+  if (/^walking\/nordic-walking$/i.test(name) || /^nordic-walking$/i.test(name)) {
+    return {
+      title: "Nordic-Walking",
+      detail: explicitVariant
     };
   }
 
@@ -9017,6 +14249,26 @@ function getRenderableDisciplineGroups(athlete, group) {
   }));
 
   const groupedMap = new Map(grouped.map((categoryGroup) => [categoryGroup.category, categoryGroup]));
+
+  const customRules = getAllCustomDisciplineRules();
+  if (customRules.length > 0) {
+    if (!groupedMap.has("Eigene Disziplinen")) {
+      const customGroup = {
+        category: "Eigene Disziplinen",
+        disciplines: []
+      };
+      grouped.push(customGroup);
+      groupedMap.set("Eigene Disziplinen", customGroup);
+    }
+
+    for (const customRule of customRules) {
+      groupedMap.get("Eigene Disziplinen").disciplines.push({
+        ...customRule,
+        kind: "standard",
+        storageKey: getRuleStorageKey(customRule)
+      });
+    }
+  }
 
   for (const categoryName of getAssociationVirtualDisplayCategories()) {
     const hasOptions = getAssociationBadgeEntriesForCategory(categoryName, athlete).length > 0;
@@ -9096,18 +14348,18 @@ function getDisciplineListItemViewModel(athlete, group, disciplineDescriptor) {
 function renderDisciplineGroups(athlete, group) {
   disciplineGroups.innerHTML = "";
 
-  if (!state.requirements) {
-    renderDisciplineInfoCard("Anforderungen konnten nicht geladen werden.");
-    return;
-  }
-
-  if (!group) {
-    renderDisciplineInfoCard("Keine passende Altersgruppe in den Anforderungen gefunden.");
-    return;
-  }
-
   const grouped = getRenderableDisciplineGroups(athlete, group);
   if (grouped.length === 0) {
+    if (!state.requirements) {
+      renderDisciplineInfoCard("Anforderungen konnten nicht geladen werden.");
+      return;
+    }
+
+    if (!group) {
+      renderDisciplineInfoCard("Keine passende Altersgruppe in den Anforderungen gefunden.");
+      return;
+    }
+
     renderDisciplineInfoCard("Keine Disziplinen fuer diese Gruppe vorhanden.");
     return;
   }
@@ -9117,6 +14369,7 @@ function renderDisciplineGroups(athlete, group) {
   for (const categoryGroup of grouped) {
     const section = document.createElement("section");
     section.className = "discipline-category";
+    section.dataset.category = categoryGroup.category;
 
     const headingWrap = document.createElement("div");
     headingWrap.className = "discipline-category-heading";
@@ -9136,84 +14389,225 @@ function renderDisciplineGroups(athlete, group) {
     const list = document.createElement("ul");
     list.className = "discipline-list";
 
+    const renderedItems = [];
+    const standardGroups = new Map();
+
     for (const descriptor of categoryGroup.disciplines) {
-      const ruleStorageKey = descriptor.storageKey;
-      const { bestLevel, bestValue, detailText } = getDisciplineListItemViewModel(athlete, group, descriptor);
-      const levelCssSuffix = getLevelCssSuffix(bestLevel);
-      const labelParts = splitDisciplineDisplay(descriptor);
+      if (descriptor.kind !== "standard") {
+        renderedItems.push({ kind: "single", descriptor });
+        continue;
+      }
+
+      const disciplineId = getStandardDisciplineIdFromDescriptor(descriptor);
+      if (!disciplineId) {
+        renderedItems.push({ kind: "single", descriptor });
+        continue;
+      }
+
+      if (!standardGroups.has(disciplineId)) {
+        const groupedEntry = {
+          kind: "standard-group",
+          disciplineId,
+          labelParts: splitDisciplineDisplay(descriptor),
+          descriptors: []
+        };
+        standardGroups.set(disciplineId, groupedEntry);
+        renderedItems.push(groupedEntry);
+      }
+
+      standardGroups.get(disciplineId).descriptors.push(descriptor);
+    }
+
+    for (const renderedItem of renderedItems) {
+      if (renderedItem.kind === "single") {
+        const descriptor = renderedItem.descriptor;
+        const ruleStorageKey = descriptor.storageKey;
+        const { bestLevel, bestValue, detailText } = getDisciplineListItemViewModel(athlete, group, descriptor);
+        const levelCssSuffix = getLevelCssSuffix(bestLevel);
+        const labelParts = splitDisciplineDisplay(descriptor);
+
+        const item = document.createElement("li");
+        item.className = "discipline-item";
+
+        const trigger = document.createElement("button");
+        trigger.type = "button";
+        trigger.className = `discipline-btn discipline-btn--${levelCssSuffix}`;
+        trigger.dataset.ruleKey = ruleStorageKey;
+
+        if (ruleStorageKey === state.selectedDisciplineKey) {
+          trigger.classList.add("is-selected");
+        }
+
+        const row = document.createElement("div");
+        row.className = "discipline-row";
+
+        const left = document.createElement("div");
+        left.className = "discipline-left";
+
+        const name = document.createElement("span");
+        name.className = "discipline-name";
+        name.textContent = labelParts.title;
+        left.append(name);
+
+        const shouldShowDetailText = descriptor.kind !== "standard";
+        if (labelParts.detail && shouldShowDetailText) {
+          const detail = document.createElement("span");
+          detail.className = "discipline-detail";
+          detail.textContent = labelParts.detail;
+          left.append(detail);
+        }
+
+        if (descriptor.kind === "standard") {
+          const thresholds = document.createElement("div");
+          thresholds.className = "threshold-chip-row";
+          thresholds.append(
+            createTrainingRequirementChipElement("Bronze", descriptor.thresholdsRaw?.bronze),
+            createTrainingRequirementChipElement("Silber", descriptor.thresholdsRaw?.silver),
+            createTrainingRequirementChipElement("Gold", descriptor.thresholdsRaw?.gold)
+          );
+          left.append(thresholds);
+        } else if (detailText) {
+          const virtualHint = document.createElement("span");
+          virtualHint.className = "discipline-detail";
+          virtualHint.textContent = detailText;
+          left.append(virtualHint);
+        }
+
+        const right = document.createElement("div");
+        right.className = "discipline-right";
+
+        const best = document.createElement("span");
+        best.className = "discipline-best";
+        best.textContent = bestValue;
+
+        const bestLevelLabel = document.createElement("span");
+        bestLevelLabel.className = "discipline-best-level";
+        bestLevelLabel.textContent = bestLevel === "-" ? "keine Stufe" : bestLevel;
+
+        right.append(best, bestLevelLabel);
+        row.append(left, right);
+
+        trigger.append(row);
+        item.append(trigger);
+        list.append(item);
+        continue;
+      }
 
       const item = document.createElement("li");
       item.className = "discipline-item";
 
-      const trigger = document.createElement("button");
-      trigger.type = "button";
-      trigger.className = `discipline-btn discipline-btn--${levelCssSuffix}`;
-      trigger.dataset.ruleKey = ruleStorageKey;
+      const executionDescriptors = getStandardExecutionDescriptorsForAthlete(athlete, group, renderedItem.descriptors[0]);
+      const activeDescriptor = executionDescriptors.find((entry) => entry.storageKey === state.selectedDisciplineKey) || executionDescriptors[0] || null;
+      const preferredOpenDescriptor = executionDescriptors.find((entry) => entry.isDsaOption) || executionDescriptors[0] || null;
 
-      if (ruleStorageKey === state.selectedDisciplineKey) {
-        trigger.classList.add("is-selected");
+      let strongestLevel = "-";
+      for (const executionDescriptor of executionDescriptors) {
+        const viewModel = getDisciplineListItemViewModel(athlete, group, executionDescriptor);
+        if (getLevelRank(viewModel.bestLevel) > getLevelRank(strongestLevel)) {
+          strongestLevel = viewModel.bestLevel;
+        }
       }
 
-      const row = document.createElement("div");
-      row.className = "discipline-row";
+      const card = document.createElement("div");
+      card.className = `discipline-btn discipline-btn--${getLevelCssSuffix(strongestLevel)}`;
+      if (preferredOpenDescriptor) {
+        card.dataset.ruleKey = preferredOpenDescriptor.storageKey;
+      }
+      if (activeDescriptor && executionDescriptors.some((entry) => entry.storageKey === state.selectedDisciplineKey)) {
+        card.classList.add("is-selected");
+      }
 
       const left = document.createElement("div");
       left.className = "discipline-left";
 
       const name = document.createElement("span");
       name.className = "discipline-name";
-      name.textContent = labelParts.title;
-
+      name.textContent = renderedItem.labelParts.title;
       left.append(name);
 
-      if (labelParts.detail) {
-        const detail = document.createElement("span");
-        detail.className = "discipline-detail";
-        detail.textContent = labelParts.detail;
-        left.append(detail);
+      const executionRows = document.createElement("div");
+      executionRows.className = "discipline-execution-list";
+
+      const executionRowConfigs = [];
+
+      for (const executionDescriptor of executionDescriptors) {
+        const executionKey = getTrainingExecutionOptionKey(executionDescriptor);
+        const executionText = resolveTrainingExecutionText(executionDescriptor);
+        const viewModel = getDisciplineListItemViewModel(athlete, group, executionDescriptor);
+        const hasDsaRule = !!executionDescriptor.isDsaOption;
+        const hasEntries = getPerformanceEntries(athlete, executionDescriptor.storageKey).length > 0;
+        if (!hasDsaRule && !hasEntries) {
+          continue;
+        }
+
+        const hasExecutionLabel = !!normalizeText(executionText) && normalizeText(executionText) !== "-";
+
+        executionRowConfigs.push({
+          executionDescriptor,
+          executionText,
+          hasExecutionLabel,
+          hasDsaRule,
+          bestText: `${viewModel.bestValue} - ${viewModel.bestLevel === "-" ? "keine Stufe" : viewModel.bestLevel}`
+        });
       }
 
-      if (descriptor.kind === "standard") {
-        const thresholds = document.createElement("div");
-        thresholds.className = "threshold-chip-row";
+      const hasAnyExecutionLabel = executionRowConfigs.some((config) => config.hasExecutionLabel);
 
-        const bronzeChip = document.createElement("span");
-        bronzeChip.className = "threshold-chip threshold-chip--bronze";
-        bronzeChip.textContent = descriptor.thresholdsRaw?.bronze || "-";
+      for (const rowConfig of executionRowConfigs) {
+        const executionRow = document.createElement("div");
+        executionRow.className = `discipline-execution-row${hasAnyExecutionLabel ? "" : " is-no-execution-column"}`;
 
-        const silberChip = document.createElement("span");
-        silberChip.className = "threshold-chip threshold-chip--silber";
-        silberChip.textContent = descriptor.thresholdsRaw?.silver || "-";
+        if (rowConfig.hasExecutionLabel) {
+          const executionChip = document.createElement("button");
+          executionChip.type = "button";
+          executionChip.className = `training-execution-chip${rowConfig.executionDescriptor.storageKey === state.selectedDisciplineKey ? " is-active" : ""}${rowConfig.hasDsaRule ? " is-dsa" : " is-no-dsa"}`;
+          executionChip.dataset.disciplineExecutionKey = rowConfig.executionDescriptor.storageKey;
+          executionChip.textContent = rowConfig.executionText;
+          executionRow.append(executionChip);
+        } else {
+          const noExecutionPlaceholder = document.createElement("span");
+          noExecutionPlaceholder.className = "discipline-execution-label-placeholder";
+          noExecutionPlaceholder.setAttribute("aria-hidden", "true");
+          noExecutionPlaceholder.textContent = "";
+          executionRow.append(noExecutionPlaceholder);
+        }
 
-        const goldChip = document.createElement("span");
-        goldChip.className = "threshold-chip threshold-chip--gold";
-        goldChip.textContent = descriptor.thresholdsRaw?.gold || "-";
+        if (rowConfig.hasDsaRule) {
+          const executionThresholds = document.createElement("div");
+          executionThresholds.className = "threshold-chip-row discipline-execution-threshold-row";
 
-        thresholds.append(bronzeChip, silberChip, goldChip);
-        left.append(thresholds);
-      } else if (detailText) {
-        const virtualHint = document.createElement("span");
-        virtualHint.className = "discipline-detail";
-        virtualHint.textContent = detailText;
-        left.append(virtualHint);
+          const bronzeChip = document.createElement("span");
+          bronzeChip.className = "threshold-chip threshold-chip--bronze";
+          bronzeChip.textContent = rowConfig.executionDescriptor.thresholdsRaw?.bronze || "-";
+
+          const silberChip = document.createElement("span");
+          silberChip.className = "threshold-chip threshold-chip--silber";
+          silberChip.textContent = rowConfig.executionDescriptor.thresholdsRaw?.silver || "-";
+
+          const goldChip = document.createElement("span");
+          goldChip.className = "threshold-chip threshold-chip--gold";
+          goldChip.textContent = rowConfig.executionDescriptor.thresholdsRaw?.gold || "-";
+
+          executionThresholds.append(bronzeChip, silberChip, goldChip);
+          executionRow.append(executionThresholds);
+        } else {
+          const noDsaHint = document.createElement("span");
+          noDsaHint.className = "discipline-execution-thresholds";
+          noDsaHint.textContent = "ohne DSA";
+          executionRow.append(noDsaHint);
+        }
+
+        const executionBest = document.createElement("span");
+        executionBest.className = "discipline-execution-best";
+        executionBest.textContent = rowConfig.bestText;
+
+        executionRow.append(executionBest);
+        executionRows.append(executionRow);
       }
 
-      const right = document.createElement("div");
-      right.className = "discipline-right";
-
-      const best = document.createElement("span");
-      best.className = "discipline-best";
-      best.textContent = bestValue;
-
-      const bestLevelLabel = document.createElement("span");
-      bestLevelLabel.className = "discipline-best-level";
-      bestLevelLabel.textContent = bestLevel === "-" ? "keine Stufe" : bestLevel;
-
-      right.append(best, bestLevelLabel);
-      row.append(left, right);
-
-      trigger.append(row);
-      item.append(trigger);
+      left.append(executionRows);
+      card.append(left);
+      item.append(card);
       list.append(item);
     }
 
@@ -9740,6 +15134,32 @@ function setPerformanceFormDefaults(descriptor, athlete, group, editingEntry = n
     } else {
       configureSpecialFieldsForSwimProof(athlete, group, editingEntry);
     }
+  } else if (descriptor.kind === "standard" && descriptor.unitType === "level") {
+    if (performanceValueLabel) {
+      performanceValueLabel.hidden = true;
+    }
+    performanceValueInput.required = false;
+
+    if (performanceSpecialFields && performanceSpecialLevelLabel && performanceSpecialLevelText) {
+      performanceSpecialFields.hidden = false;
+      if (performanceSpecialSelectLabel) {
+        performanceSpecialSelectLabel.hidden = true;
+      }
+
+      performanceSpecialLevelLabel.hidden = false;
+      performanceSpecialLevelText.textContent = "Stufe";
+      performanceSpecialLevelInput.required = true;
+
+      const presetLevel = editingEntry
+        ? (normalizeBadgeMedalLevel(editingEntry.valueInput) || ({ 1: "Bronze", 2: "Silber", 3: "Gold" }[Number(editingEntry.valueNormalized)] || ""))
+        : "";
+
+      setSpecialLevelInputMode("picker", presetLevel);
+      if (performanceSpecialHint) {
+        performanceSpecialHint.hidden = false;
+        performanceSpecialHint.textContent = "Stufe per Klick waehlen: Bronze, Silber oder Gold.";
+      }
+    }
   }
 
   performanceDateTimeInput.value = toDateTimeLocalValue(new Date().toISOString());
@@ -9781,7 +15201,8 @@ function renderPerformanceHistory(descriptor, entries, athlete, group) {
     main.className = "history-main";
 
     const valueLine = document.createElement("strong");
-    valueLine.textContent = `${formatPerformanceHistoryValue(descriptor, entry, athlete, group)} (${level})`;
+    const executionPrefix = descriptor.kind === "standard" ? `Ausfuehrung: ${resolveTrainingExecutionText(descriptor)} | ` : "";
+    valueLine.textContent = `${executionPrefix}${formatPerformanceHistoryValue(descriptor, entry, athlete, group)} (${level})`;
 
     const meta = document.createElement("p");
     meta.className = "history-meta";
@@ -9802,6 +15223,7 @@ function focusPerformanceInput() {
 
   requestAnimationFrame(() => {
     const preferSpecialSelect = performanceSpecialFields && !performanceSpecialFields.hidden && performanceSpecialSelect && !performanceSpecialSelectLabel?.hidden;
+    const preferLevelPicker = performanceSpecialFields && !performanceSpecialFields.hidden && performanceSpecialLevelPicker && !performanceSpecialLevelPicker.hidden;
 
     if (preferSpecialSelect) {
       try {
@@ -9809,17 +15231,24 @@ function focusPerformanceInput() {
       } catch (_error) {
         performanceSpecialSelect.focus();
       }
-    } else {
+    } else if (!preferLevelPicker) {
       try {
         performanceValueInput.focus({ preventScroll: true });
         performanceValueInput.select();
       } catch (_error) {
         performanceValueInput.focus();
       }
+    } else {
+      const firstPickerButton = performanceSpecialLevelPicker.querySelector(".medal-level-btn[data-level]");
+      if (firstPickerButton instanceof HTMLElement) {
+        firstPickerButton.focus();
+      }
     }
 
     updatePerformanceModalKeyboardOffset();
-    const focusTarget = preferSpecialSelect ? performanceSpecialSelect : performanceValueInput;
+    const focusTarget = preferSpecialSelect
+      ? performanceSpecialSelect
+      : (preferLevelPicker ? performanceSpecialLevelPicker : performanceValueInput);
     focusTarget.scrollIntoView({ block: "center", inline: "nearest" });
   });
 }
@@ -9843,17 +15272,63 @@ function renderPerformanceModal() {
   }
 
   const entries = getDisciplineHistoryEntries(athlete, group, descriptor);
+  const standardExecutionDescriptors = descriptor.kind === "standard"
+    ? getStandardExecutionDescriptorsForAthlete(athlete, group, descriptor)
+    : [];
   const athleteName = athleteDisplayName(athlete) || "Athlet";
 
   performanceModalTitle.textContent = descriptor.disciplineName;
 
   let baseMeta = `Athlet: ${athleteName}`;
   if (descriptor.kind === "standard") {
-    baseMeta = `${baseMeta} | Bronze: ${descriptor.thresholdsRaw?.bronze || "-"} | Silber: ${descriptor.thresholdsRaw?.silver || "-"} | Gold: ${descriptor.thresholdsRaw?.gold || "-"}`;
+    baseMeta = `${baseMeta} | Ausfuehrung: ${resolveTrainingExecutionText(descriptor)}`;
   } else if (descriptor.kind === "association") {
     baseMeta = `${baseMeta} | Kategorie: ${descriptor.category} | Verbandsabzeichen`;
   } else {
     baseMeta = `${baseMeta} | Schwimmnachweis`;
+  }
+
+  if (performanceRequirementsRow) {
+    performanceRequirementsRow.innerHTML = "";
+    performanceRequirementsRow.hidden = descriptor.kind !== "standard";
+    if (descriptor.kind === "standard") {
+      performanceRequirementsRow.append(
+        createTrainingRequirementChipElement("Bronze", descriptor.thresholdsRaw?.bronze),
+        createTrainingRequirementChipElement("Silber", descriptor.thresholdsRaw?.silver),
+        createTrainingRequirementChipElement("Gold", descriptor.thresholdsRaw?.gold)
+      );
+    }
+  }
+
+  if (performanceExecutionSelector) {
+    performanceExecutionSelector.innerHTML = "";
+    const canSelectExecution = descriptor.kind === "standard" && standardExecutionDescriptors.length > 1;
+    performanceExecutionSelector.hidden = !canSelectExecution;
+
+    if (canSelectExecution) {
+      const selectorTitle = document.createElement("p");
+      selectorTitle.className = "training-execution-selector-title";
+      selectorTitle.textContent = "Ausfuehrungen";
+
+      const chipRow = document.createElement("div");
+      chipRow.className = "training-execution-chip-row";
+      const disciplineId = getStandardDisciplineIdFromDescriptor(descriptor);
+
+      for (const executionDescriptor of standardExecutionDescriptors) {
+        const executionKey = getTrainingExecutionOptionKey(executionDescriptor);
+        const hasDsaRule = !!getTrainingRuleForAthlete(athlete, disciplineId, executionKey).rule;
+
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = `training-execution-chip${executionDescriptor.storageKey === descriptor.storageKey ? " is-active" : ""}${hasDsaRule ? " is-dsa" : " is-no-dsa"}`;
+        chip.dataset.performanceAction = "select-execution";
+        chip.dataset.ruleKey = executionDescriptor.storageKey;
+        chip.textContent = resolveTrainingExecutionText(executionDescriptor);
+        chipRow.append(chip);
+      }
+
+      performanceExecutionSelector.append(selectorTitle, chipRow);
+    }
   }
 
   let editingEntry = null;
@@ -9870,7 +15345,13 @@ function renderPerformanceModal() {
   if (editingEntry) {
     isEditing = true;
     if (descriptor.kind === "standard") {
-      performanceValueInput.value = editingEntry.valueInput || formatNormalizedValue(descriptor, editingEntry.valueNormalized);
+      if (descriptor.unitType === "level") {
+        const selectedLevel = normalizeBadgeMedalLevel(editingEntry.valueInput)
+          || ({ 1: "Bronze", 2: "Silber", 3: "Gold" }[Number(editingEntry.valueNormalized)] || "");
+        setSpecialLevelPickerSelection(selectedLevel);
+      } else {
+        performanceValueInput.value = editingEntry.valueInput || formatNormalizedValue(descriptor, editingEntry.valueNormalized);
+      }
     }
     performanceDateTimeInput.value = toDateTimeLocalValue(editingEntry.measuredAt);
   }
@@ -9981,6 +15462,14 @@ function renderAthleteDetail() {
       editAthleteButton.hidden = true;
     }
 
+    if (athleteStatsButton) {
+      athleteStatsButton.hidden = true;
+    }
+
+    if (athleteEmergencyButton) {
+      athleteEmergencyButton.hidden = true;
+    }
+
     if (athleteCategoryStatusRow) {
       athleteCategoryStatusRow.innerHTML = "";
     }
@@ -10022,6 +15511,14 @@ function renderAthleteDetail() {
 
   if (editAthleteButton) {
     editAthleteButton.hidden = !athlete;
+  }
+
+  if (athleteStatsButton) {
+    athleteStatsButton.hidden = !athlete;
+  }
+
+  if (athleteEmergencyButton) {
+    athleteEmergencyButton.hidden = !athlete;
   }
 
   if (!athlete) {
@@ -10066,6 +15563,10 @@ function renderAthleteDetail() {
   const displayCode = athleteCode(athlete);
   if (athleteDetailName) {
     athleteDetailName.textContent = displayName;
+    const detailWarningIndicator = createAthleteWarningIndicator(athlete, { detail: true });
+    if (detailWarningIndicator) {
+      athleteDetailName.append(" ", detailWarningIndicator);
+    }
   } else if (athleteDetailTitle) {
     athleteDetailTitle.textContent = displayName;
   }
@@ -10079,6 +15580,10 @@ function renderAthleteDetail() {
   }
 
   const requirementGroup = getRequirementGroupForAthlete(athlete);
+  const emergencyContacts = getAthleteEmergencyContacts(athlete);
+  if (athleteEmergencyButton) {
+    athleteEmergencyButton.hidden = emergencyContacts.emails.length === 0 && emergencyContacts.phones.length === 0;
+  }
   const categoryLevels = getAthleteCategoryLevels(athlete, requirementGroup);
   const overallLevel = getOverallAwardLevel(categoryLevels);
   setAthleteDetailHeaderLevel(overallLevel);
@@ -10618,7 +16123,10 @@ function handlePerformanceSubmit(event) {
       }
     };
   } else {
-    const parsedValue = parsePerformanceValue(descriptor, performanceValueInput.value);
+    const rawStandardInput = descriptor.kind === "standard" && descriptor.unitType === "level"
+      ? (normalizeBadgeMedalLevel(performanceSpecialLevelInput?.value) || normalizeText(performanceSpecialLevelInput?.value))
+      : performanceValueInput.value;
+    const parsedValue = parsePerformanceValue(descriptor, rawStandardInput);
     if (!parsedValue.ok) {
       showToast(parsedValue.message);
       return;
@@ -10910,6 +16418,375 @@ function wireEvents() {
     });
   }
 
+  if (morePageNav) {
+    morePageNav.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-more-page]");
+      if (!button) {
+        return;
+      }
+
+      setMorePage(button.dataset.morePage || "insights");
+    });
+  }
+
+  if (morePagePanels) {
+    morePagePanels.addEventListener("click", (event) => {
+      const backButton = event.target.closest('[data-more-action="back-home"]');
+      if (!backButton) {
+        return;
+      }
+
+      setMorePage("home");
+    });
+  }
+
+  if (customDisciplineInputTypeSelect && customDisciplineBetterSelect) {
+    customDisciplineInputTypeSelect.addEventListener("change", () => {
+      const selectedType = normalizeCustomDisciplineInputType(customDisciplineInputTypeSelect.value);
+      if (selectedType === "level") {
+        customDisciplineBetterSelect.value = "higher";
+      } else if (selectedType === "time_seconds" || selectedType === "time_mm_ss") {
+        customDisciplineBetterSelect.value = "lower";
+      }
+    });
+  }
+
+  if (customDisciplineCancelButton) {
+    customDisciplineCancelButton.addEventListener("click", () => {
+      resetCustomDisciplineForm();
+    });
+  }
+
+  if (customDisciplineForm) {
+    customDisciplineForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      saveCustomDisciplineFromForm();
+    });
+  }
+
+  if (customDisciplineList) {
+    customDisciplineList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-custom-action][data-custom-id]");
+      if (!button) {
+        return;
+      }
+
+      const customId = normalizeText(button.dataset.customId);
+      if (!customId) {
+        return;
+      }
+
+      const action = normalizeText(button.dataset.customAction);
+      if (action === "edit") {
+        const customDiscipline = getCustomDisciplineById(customId);
+        fillCustomDisciplineForm(customDiscipline);
+        if (customDisciplineNameInput) {
+          customDisciplineNameInput.focus();
+          customDisciplineNameInput.select();
+        }
+        return;
+      }
+
+      if (action === "delete") {
+        deleteCustomDiscipline(customId);
+      }
+    });
+  }
+
+  if (certificateScopeSelect) {
+    certificateScopeSelect.addEventListener("change", () => {
+      state.certificateScope = normalizeText(certificateScopeSelect.value) || "all";
+      renderCertificateTools();
+    });
+  }
+
+  if (certificateGroupSelect) {
+    certificateGroupSelect.addEventListener("change", () => {
+      state.certificateGroupIds = Array.from(certificateGroupSelect.selectedOptions || [])
+        .map((option) => normalizeText(option.value))
+        .filter(Boolean);
+      renderCertificateTools();
+    });
+  }
+
+  if (certificateAthletesAllButton) {
+    certificateAthletesAllButton.addEventListener("click", () => {
+      state.certificateAthleteIds = state.athletes.map((athlete) => athlete.id);
+      renderCertificateTools();
+    });
+  }
+
+  if (certificateAthletesNoneButton) {
+    certificateAthletesNoneButton.addEventListener("click", () => {
+      state.certificateAthleteIds = [];
+      renderCertificateTools();
+    });
+  }
+
+  if (certificateDisciplineModeSelect) {
+    certificateDisciplineModeSelect.addEventListener("change", () => {
+      state.certificateDisciplineMode = normalizeText(certificateDisciplineModeSelect.value) === "selected" ? "selected" : "all";
+      renderCertificateTools();
+    });
+  }
+
+  if (certificateDisciplinesAllButton) {
+    certificateDisciplinesAllButton.addEventListener("click", () => {
+      const catalog = getCertificateDisciplineCatalog(getAthletesForCertificateScope());
+      state.certificateDisciplineKeys = catalog.map((entry) => entry.key);
+      renderCertificateTools();
+    });
+  }
+
+  if (certificateDisciplinesNoneButton) {
+    certificateDisciplinesNoneButton.addEventListener("click", () => {
+      state.certificateDisciplineKeys = [];
+      renderCertificateTools();
+    });
+  }
+
+  if (certificateIncludeExecutionCheckbox) {
+    certificateIncludeExecutionCheckbox.addEventListener("change", () => {
+      state.certificateIncludeExecutionDetails = !!certificateIncludeExecutionCheckbox.checked;
+      renderCertificateSummary();
+    });
+  }
+
+  if (certificateIncludeLevelCheckbox) {
+    certificateIncludeLevelCheckbox.addEventListener("change", () => {
+      state.certificateIncludeLevelDetails = !!certificateIncludeLevelCheckbox.checked;
+    });
+  }
+
+  if (certificateHeadlineInput) {
+    certificateHeadlineInput.addEventListener("input", () => {
+      state.certificateHeadline = normalizeText(certificateHeadlineInput.value);
+    });
+  }
+
+  if (certificateLayoutSelect) {
+    certificateLayoutSelect.addEventListener("change", () => {
+      state.certificateLayoutMode = normalizeText(certificateLayoutSelect.value) || "a4-single";
+    });
+  }
+
+  if (certificateDesignSelect) {
+    certificateDesignSelect.addEventListener("change", () => {
+      state.certificateDesign = normalizeText(certificateDesignSelect.value) || "design-1";
+    });
+  }
+
+  if (certificateBackgroundInput) {
+    certificateBackgroundInput.addEventListener("change", () => {
+      handleCertificateImageUpload(certificateBackgroundInput, "background");
+    });
+  }
+
+  if (certificateLogoPrimaryInput) {
+    certificateLogoPrimaryInput.addEventListener("change", () => {
+      handleCertificateImageUpload(certificateLogoPrimaryInput, "logoPrimary");
+    });
+  }
+
+  if (certificateLogoSecondaryInput) {
+    certificateLogoSecondaryInput.addEventListener("change", () => {
+      handleCertificateImageUpload(certificateLogoSecondaryInput, "logoSecondary");
+    });
+  }
+
+  if (certificateExportCsvButton) {
+    certificateExportCsvButton.addEventListener("click", exportCertificateMailMergeCsv);
+  }
+
+  if (certificatePreviewPrintButton) {
+    certificatePreviewPrintButton.addEventListener("click", () => {
+      openCertificatePrintView({ autoPrint: false });
+    });
+  }
+
+  if (certificateRunPrintButton) {
+    certificateRunPrintButton.addEventListener("click", () => {
+      openCertificatePrintView({ autoPrint: true });
+    });
+  }
+
+  if (moreInsightsScopeSelect) {
+    moreInsightsScopeSelect.addEventListener("change", () => {
+      state.moreInsightsScope = normalizeText(moreInsightsScopeSelect.value) || "all";
+      renderMoreInsights();
+    });
+  }
+
+  if (moreActivityRangeChips) {
+    moreActivityRangeChips.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-activity-range]");
+      if (!button) {
+        return;
+      }
+
+      state.moreInsightsActivityRange = normalizeMoreActivityRange(button.dataset.activityRange);
+      renderMoreActivityRangeState();
+
+      const scopedAthletes = getAthletesForMoreInsightsScope();
+      const activityStats = collectMoreInsightsActivity(scopedAthletes);
+      renderActivityAreaChart(moreActivityChart, activityStats.activity, activityStats.range);
+    });
+  }
+
+  if (athleteForm) {
+    const birthField = athleteForm.elements.birthInput;
+    if (birthField) {
+      birthField.addEventListener("blur", () => {
+        const raw = normalizeText(birthField.value);
+        const normalized = normalizeBirthInput(raw);
+        if (normalized) {
+          birthField.value = normalized;
+          birthField.setCustomValidity("");
+          return;
+        }
+
+        if (!raw) {
+          birthField.setCustomValidity("");
+          return;
+        }
+
+        birthField.setCustomValidity("Bitte YYYY, YYYY-MM-DD oder DD.MM.YYYY eingeben.");
+      });
+
+      birthField.addEventListener("input", () => {
+        birthField.setCustomValidity("");
+      });
+    }
+
+    athleteForm.addEventListener("blur", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) {
+        return;
+      }
+
+      const normalizeFields = new Set(["firstName", "lastName", "dsaId", "zip", "city", "country"]);
+      if (normalizeFields.has(target.name)) {
+        target.value = normalizeText(target.value);
+      }
+
+      if (target.name === "emergencyEmails") {
+        target.value = normalizeEmergencyEmailList(target.value).join("; ");
+      }
+
+      if (target.name === "emergencyPhones") {
+        target.value = normalizeEmergencyPhoneList(target.value).join("; ");
+      }
+    }, true);
+  }
+
+  if (mailerScopeSelect) {
+    mailerScopeSelect.addEventListener("change", () => {
+      state.mailerScope = normalizeText(mailerScopeSelect.value) || "all";
+      renderMailerControls();
+    });
+  }
+
+  if (mailerGroupSelect) {
+    mailerGroupSelect.addEventListener("change", () => {
+      state.mailerGroupIds = Array.from(mailerGroupSelect.selectedOptions || [])
+        .map((option) => normalizeText(option.value))
+        .filter(Boolean);
+      renderMailerPreview();
+    });
+  }
+
+  if (mailerAthletesAllButton) {
+    mailerAthletesAllButton.addEventListener("click", () => {
+      state.mailerAthleteIds = state.athletes.map((athlete) => athlete.id);
+      renderMailerControls();
+    });
+  }
+
+  if (mailerAthletesNoneButton) {
+    mailerAthletesNoneButton.addEventListener("click", () => {
+      state.mailerAthleteIds = [];
+      renderMailerControls();
+    });
+  }
+
+  if (mailerCopySemicolonButton) {
+    mailerCopySemicolonButton.addEventListener("click", () => {
+      const emails = getMailerEmailList();
+      copyTextToClipboard(emails.join("; "), {
+        successMessage: "Mail-Adressen mit ';' kopiert.",
+        emptyMessage: "Keine Mail-Adressen zum Kopieren gefunden."
+      });
+    });
+  }
+
+  if (mailerCopyCommaButton) {
+    mailerCopyCommaButton.addEventListener("click", () => {
+      const emails = getMailerEmailList();
+      copyTextToClipboard(emails.join(", "), {
+        successMessage: "Mail-Adressen mit ',' kopiert.",
+        emptyMessage: "Keine Mail-Adressen zum Kopieren gefunden."
+      });
+    });
+  }
+
+  if (mailerCopyLinesButton) {
+    mailerCopyLinesButton.addEventListener("click", () => {
+      const emails = getMailerEmailList();
+      copyTextToClipboard(emails.join("\n"), {
+        successMessage: "Mail-Adressen zeilenweise kopiert.",
+        emptyMessage: "Keine Mail-Adressen zum Kopieren gefunden."
+      });
+    });
+  }
+
+  if (mailerOpenToButton) {
+    mailerOpenToButton.addEventListener("click", () => {
+      openMailerDraft("to");
+    });
+  }
+
+  if (mailerOpenCcButton) {
+    mailerOpenCcButton.addEventListener("click", () => {
+      openMailerDraft("cc");
+    });
+  }
+
+  if (mailerOpenBccButton) {
+    mailerOpenBccButton.addEventListener("click", () => {
+      openMailerDraft("bcc");
+    });
+  }
+
+  if (mergeRefreshButton) {
+    mergeRefreshButton.addEventListener("click", () => {
+      renderMergeTools();
+      showToast("Duplikat-Vorschlaege aktualisiert.");
+    });
+  }
+
+  if (mergeEntityTypeSelect) {
+    mergeEntityTypeSelect.addEventListener("change", () => {
+      state.mergeEntityType = normalizeText(mergeEntityTypeSelect.value) === "groups" ? "groups" : "athletes";
+      renderMergeManualOptions();
+    });
+  }
+
+  if (mergePrimarySelect) {
+    mergePrimarySelect.addEventListener("change", renderMergeManualOptions);
+  }
+
+  if (mergeSecondarySelect) {
+    mergeSecondarySelect.addEventListener("change", renderMergeManualOptions);
+  }
+
+  if (mergePreviewButton) {
+    mergePreviewButton.addEventListener("click", renderMergeManualOptions);
+  }
+
+  if (mergeRunButton) {
+    mergeRunButton.addEventListener("click", runManualMerge);
+  }
+
   addAthleteButton.addEventListener("click", () => openAthleteModal("create"));
   editAthleteButton.addEventListener("click", () => {
     const selectedAthlete = getSelectedAthlete();
@@ -10920,6 +16797,22 @@ function wireEvents() {
 
     openAthleteModal("edit", selectedAthlete);
   });
+
+  if (athleteStatsButton) {
+    athleteStatsButton.addEventListener("click", () => {
+      const selectedAthlete = getSelectedAthlete();
+      if (!selectedAthlete) {
+        showToast("Bitte zuerst einen Athleten waehlen.");
+        return;
+      }
+
+      openMoreInsightsForAthlete(selectedAthlete.id);
+    });
+  }
+
+  if (athleteEmergencyButton) {
+    athleteEmergencyButton.addEventListener("click", openEmergencyContactsModal);
+  }
 
   if (athletesTitle) {
     athletesTitle.addEventListener("click", () => {
@@ -10963,8 +16856,27 @@ function wireEvents() {
     });
   }
 
+  if (trainingView) {
+    trainingView.addEventListener("click", (event) => {
+      const executionButton = event.target.closest('[data-training-action="select-execution"]');
+      if (executionButton) {
+        setTrainingSelectedExecution(executionButton.dataset.disciplineId || "", executionButton.dataset.executionKey || "");
+        return;
+      }
+
+      const openExamTable = event.target.closest('[data-training-action="open-exam-execution"]');
+      if (openExamTable) {
+        openTrainingExamForExecution(openExamTable.dataset.disciplineId || "", openExamTable.dataset.executionKey || "");
+      }
+    });
+  }
+
   if (requirementsViewButton) {
-    requirementsViewButton.addEventListener("click", () => {
+    requirementsViewButton.addEventListener("click", (event) => {
+      if (consumeSwipeSuppressedClick(event.target)) {
+        return;
+      }
+
       openRequirementsInspectorView();
     });
   }
@@ -10996,7 +16908,6 @@ function wireEvents() {
       openGroupModal("create");
     });
   }
-
   deleteAthleteButton.addEventListener("click", deleteCurrentAthleteFromModal);
   athleteForm.addEventListener("submit", handleAthleteSubmit);
   if (groupForm) {
@@ -11026,6 +16937,22 @@ function wireEvents() {
     });
   }
 
+  if (emergencyContactsModal) {
+    emergencyContactsModal.addEventListener("click", (event) => {
+      if (event.target === emergencyContactsModal) {
+        closeEmergencyContactsModal();
+      }
+    });
+  }
+
+  if (closeEmergencyContactsButton) {
+    closeEmergencyContactsButton.addEventListener("click", closeEmergencyContactsModal);
+  }
+
+  if (closeEmergencyContactsFooterButton) {
+    closeEmergencyContactsFooterButton.addEventListener("click", closeEmergencyContactsModal);
+  }
+
   if (performanceModal) {
     performanceModal.addEventListener("click", (event) => {
       if (event.target === performanceModal) {
@@ -11042,6 +16969,140 @@ function wireEvents() {
           target.scrollIntoView({ block: "center", inline: "nearest" });
         });
       }
+    });
+  }
+
+  if (trainingQuickModal) {
+    trainingQuickModal.addEventListener("click", (event) => {
+      if (event.target === trainingQuickModal) {
+        closeTrainingQuickEntryModal();
+      }
+    });
+  }
+
+  if (trainingQuickModalCloseButton) {
+    trainingQuickModalCloseButton.addEventListener("click", closeTrainingQuickEntryModal);
+  }
+
+  if (trainingQuickModalCancelButton) {
+    trainingQuickModalCancelButton.addEventListener("click", closeTrainingQuickEntryModal);
+  }
+
+  if (trainingQuickModalExecutions) {
+    trainingQuickModalExecutions.addEventListener("click", (event) => {
+      const button = event.target.closest('[data-training-action="quick-modal-select-execution"]');
+      if (!button) {
+        return;
+      }
+
+      const selectedDiscipline = getSelectedTrainingDiscipline();
+      if (!selectedDiscipline) {
+        return;
+      }
+
+      setTrainingSelectedExecution(selectedDiscipline.id, button.dataset.executionKey || "", { renderView: false });
+      trainingQuickModalEditingEntryId = "";
+      renderTrainingView();
+      renderTrainingQuickEntryModal();
+    });
+  }
+
+  if (trainingQuickModalLevels) {
+    trainingQuickModalLevels.addEventListener("click", (event) => {
+      const levelButton = event.target.closest('[data-training-action="quick-modal-level"][data-level]');
+      if (!levelButton) {
+        return;
+      }
+
+      const selectedDiscipline = getSelectedTrainingDiscipline();
+      if (!selectedDiscipline || !trainingQuickModalAthleteId) {
+        return;
+      }
+
+      const level = normalizeBadgeMedalLevel(levelButton.dataset.level || "");
+      if (!level) {
+        return;
+      }
+
+      setTrainingInputDraftValue(selectedDiscipline.id, trainingQuickModalAthleteId, level);
+      trainingQuickModalEditingEntryId = "";
+      renderTrainingQuickEntryModal();
+    });
+  }
+
+  if (trainingQuickModalHistory) {
+    trainingQuickModalHistory.addEventListener("click", (event) => {
+      const button = event.target.closest('[data-training-action="quick-modal-edit-entry"][data-entry-id]');
+      if (!button) {
+        return;
+      }
+
+      const selectedDiscipline = getSelectedTrainingDiscipline();
+      if (!selectedDiscipline || !trainingQuickModalAthleteId) {
+        return;
+      }
+
+      const athlete = state.athletes.find((entry) => entry.id === trainingQuickModalAthleteId) || null;
+      if (!athlete) {
+        return;
+      }
+
+      const { inputRule } = resolveTrainingExamRuleForAthlete(athlete, selectedDiscipline, { allowFallback: true });
+      if (!inputRule) {
+        return;
+      }
+
+      const storageKey = getRuleStorageKey(inputRule);
+      const entry = getPerformanceEntries(athlete, storageKey).find((historyEntry) => historyEntry.id === normalizeText(button.dataset.entryId)) || null;
+      if (!entry) {
+        return;
+      }
+
+      let nextDraftValue = normalizeText(entry.valueInput);
+      if (inputRule.unitType === "level") {
+        const mappedLevel = normalizeBadgeMedalLevel(entry.valueInput)
+          || ({ 1: "Bronze", 2: "Silber", 3: "Gold" }[Number(entry.valueNormalized)] || "");
+        nextDraftValue = mappedLevel || nextDraftValue;
+      }
+
+      setTrainingInputDraftValue(selectedDiscipline.id, trainingQuickModalAthleteId, nextDraftValue);
+      trainingQuickModalEditingEntryId = entry.id;
+      renderTrainingQuickEntryModal();
+    });
+  }
+
+  if (trainingQuickModalInput) {
+    trainingQuickModalInput.addEventListener("input", () => {
+      const selectedDiscipline = getSelectedTrainingDiscipline();
+      if (!selectedDiscipline || !trainingQuickModalAthleteId) {
+        return;
+      }
+
+      setTrainingInputDraftValue(selectedDiscipline.id, trainingQuickModalAthleteId, trainingQuickModalInput.value);
+      trainingQuickModalEditingEntryId = "";
+    });
+
+    trainingQuickModalInput.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") {
+        return;
+      }
+
+      event.preventDefault();
+      if (trainingQuickModalAthleteId) {
+        saveTrainingQuickPerformance(trainingQuickModalAthleteId);
+        renderTrainingQuickEntryModal();
+      }
+    });
+  }
+
+  if (trainingQuickModalSaveButton) {
+    trainingQuickModalSaveButton.addEventListener("click", () => {
+      if (!trainingQuickModalAthleteId) {
+        return;
+      }
+
+      saveTrainingQuickPerformance(trainingQuickModalAthleteId);
+      closeTrainingQuickEntryModal();
     });
   }
 
@@ -11072,6 +17133,16 @@ function wireEvents() {
       return;
     }
 
+    if (emergencyContactsModal && !emergencyContactsModal.hidden) {
+      closeEmergencyContactsModal();
+      return;
+    }
+
+    if (trainingQuickModal && !trainingQuickModal.hidden) {
+      closeTrainingQuickEntryModal();
+      return;
+    }
+
     if (!athleteModal.hidden) {
       closeAthleteModal();
       return;
@@ -11097,6 +17168,10 @@ function wireEvents() {
   });
 
   athleteList.addEventListener("click", (event) => {
+    if (consumeSwipeSuppressedClick(event.target)) {
+      return;
+    }
+
     const button = event.target.closest(".athlete-card-btn");
     if (!button) {
       return;
@@ -11105,8 +17180,23 @@ function wireEvents() {
     setSelectedAthlete(button.dataset.athleteId || "");
   });
 
+  if (athleteCategoryStatusRow) {
+    athleteCategoryStatusRow.addEventListener("click", (event) => {
+      const item = event.target.closest(".category-status-item[data-category]");
+      if (!item) {
+        return;
+      }
+
+      jumpToAthleteCategory(item.dataset.category || "");
+    });
+  }
+
   if (trainingExamPane) {
     trainingExamPane.addEventListener("click", (event) => {
+      if (consumeSwipeSuppressedClick(event.target)) {
+        return;
+      }
+
       const actionElement = event.target.closest("[data-training-action]");
       if (!actionElement) {
         return;
@@ -11115,142 +17205,23 @@ function wireEvents() {
       const action = normalizeText(actionElement.dataset.trainingAction);
       const athleteId = normalizeText(actionElement.dataset.athleteId);
 
-      if (action === "start-all-timing") {
-        startTrainingGlobalTiming();
-        return;
+      if (action === "open-athlete-quick-entry" && athleteId) {
+        openTrainingQuickEntryModal(athleteId);
       }
-
-      if (action === "stop-all-timing") {
-        stopTrainingGlobalTiming();
-        return;
-      }
-
-      if (action === "abort-all-timing") {
-        abortTrainingGlobalTiming();
-        return;
-      }
-
-      if (action === "start-marked-timing") {
-        startTrainingMarkedTiming();
-        return;
-      }
-
-      if (action === "stop-marked-timing") {
-        stopTrainingMarkedTiming();
-        return;
-      }
-
-      if (action === "abort-marked-timing") {
-        abortTrainingMarkedTiming();
-        return;
-      }
-
-      if (action === "mark-all-visible") {
-        markAllVisibleTrainingAthletes();
-        return;
-      }
-
-      if (action === "mark-running-visible") {
-        markRunningVisibleTrainingAthletes();
-        return;
-      }
-
-      if (action === "mark-none-visible") {
-        clearVisibleTrainingAthleteMarks();
-        return;
-      }
-
-      if (action === "toggle-athlete-mark" && athleteId) {
-        toggleTrainingAthleteMarked(athleteId);
-        return;
-      }
-
-      if (action === "start-athlete-timing" && athleteId) {
-        startTrainingAthleteTiming(athleteId);
-        return;
-      }
-
-      if (action === "stop-athlete-timing" && athleteId) {
-        stopTrainingAthleteTiming(athleteId);
-        return;
-      }
-
-      if (action === "abort-athlete-timing" && athleteId) {
-        abortTrainingAthleteTiming(athleteId);
-        return;
-      }
-
-      if (action === "save-quick-performance" && athleteId) {
-        saveTrainingQuickPerformance(athleteId);
-        return;
-      }
-
-      if (action === "quick-level" && athleteId) {
-        const selectedDiscipline = getSelectedTrainingDiscipline();
-        if (!selectedDiscipline) {
-          return;
-        }
-
-        setTrainingInputDraftValue(selectedDiscipline.id, athleteId, actionElement.dataset.level || "");
-        renderTrainingExamPane(selectedDiscipline);
-      }
-    });
-
-    trainingExamPane.addEventListener("input", (event) => {
-      const quickInput = event.target.closest('[data-training-action="quick-input"]');
-      const attemptInput = event.target.closest('[data-training-action="quick-attempt-input"]');
-      if (!quickInput && !attemptInput) {
-        return;
-      }
-
-      const selectedDiscipline = getSelectedTrainingDiscipline();
-      const athleteId = normalizeText((quickInput || attemptInput).dataset.athleteId);
-      if (!selectedDiscipline || !athleteId) {
-        return;
-      }
-
-      if (quickInput) {
-        setTrainingInputDraftValue(selectedDiscipline.id, athleteId, quickInput.value);
-        return;
-      }
-
-      const attemptIndex = Number(attemptInput.dataset.attemptIndex);
-      if (!Number.isInteger(attemptIndex) || attemptIndex < 1 || attemptIndex > 4) {
-        return;
-      }
-
-      setTrainingAttemptDraftValue(selectedDiscipline.id, athleteId, attemptIndex, attemptInput.value);
     });
 
     trainingExamPane.addEventListener("keydown", (event) => {
       if ((event.key === "Enter" || event.key === " ") && event.target instanceof HTMLElement) {
-        const markableItem = event.target.closest('.training-athlete-item[data-training-action="toggle-athlete-mark"]');
-        if (markableItem && event.target === markableItem) {
-          const athleteId = normalizeText(markableItem.dataset.athleteId);
+        const openItem = event.target.closest('.training-athlete-item[data-training-action="open-athlete-quick-entry"]');
+        if (openItem && event.target === openItem) {
+          const athleteId = normalizeText(openItem.dataset.athleteId);
           if (athleteId) {
             event.preventDefault();
-            toggleTrainingAthleteMarked(athleteId);
+            openTrainingQuickEntryModal(athleteId);
             return;
           }
         }
       }
-
-      if (event.key !== "Enter") {
-        return;
-      }
-
-      const input = event.target.closest('[data-training-action="quick-input"], [data-training-action="quick-attempt-input"]');
-      if (!input) {
-        return;
-      }
-
-      const athleteId = normalizeText(input.dataset.athleteId);
-      if (!athleteId) {
-        return;
-      }
-
-      event.preventDefault();
-      saveTrainingQuickPerformance(athleteId);
     });
   }
 
@@ -11259,8 +17230,17 @@ function wireEvents() {
       return;
     }
 
-    const button = event.target.closest(".discipline-btn");
-    if (!button) {
+    const executionButton = event.target.closest("[data-discipline-execution-key]");
+    if (executionButton) {
+      state.selectedDisciplineKey = executionButton.dataset.disciplineExecutionKey || "";
+      state.editPerformanceId = "";
+      renderAthleteDetail();
+      openPerformanceModal();
+      return;
+    }
+
+    const button = event.target.closest(".discipline-btn[data-rule-key]");
+    if (!(button instanceof HTMLElement)) {
       return;
     }
 
@@ -11303,6 +17283,25 @@ function wireEvents() {
       if (descriptor?.kind === "association") {
         updateAssociationSpecialInputState(athlete, descriptor);
       }
+    });
+  }
+
+  if (performanceExecutionSelector) {
+    performanceExecutionSelector.addEventListener("click", (event) => {
+      const chip = event.target.closest('[data-performance-action="select-execution"][data-rule-key]');
+      if (!chip) {
+        return;
+      }
+
+      const nextRuleKey = normalizeText(chip.dataset.ruleKey);
+      if (!nextRuleKey || nextRuleKey === state.selectedDisciplineKey) {
+        return;
+      }
+
+      state.selectedDisciplineKey = nextRuleKey;
+      state.editPerformanceId = "";
+      renderAthleteDetail();
+      openPerformanceModal();
     });
   }
 
@@ -11412,12 +17411,14 @@ async function init() {
   loadAthletes();
   loadGroups();
   loadTrainingState();
+  loadCustomDisciplines();
   if (pruneGroupAthleteAssignments()) {
     saveGroups();
   }
   ensureDefaultGroupFilterSelection();
 
   wireEvents();
+  resetCustomDisciplineForm();
   updateImportGroupInputState();
   refreshAthleteViews();
   updateInstallButtonState();

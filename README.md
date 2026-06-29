@@ -10,14 +10,26 @@ Direktlink: https://benny354912.github.io/SportApp/
 - Keine Garantie/Gewaehr auf Funktionalitaet oder Richtigkeit.
 - Privatprojekt. Keine Haftung fuer Datenverlust oder andere Schaeden, die von/durch oder in Verbindung mit dieser App/Website entstehen. Nutzung auf eigene Verantwortung.
 - Dieses Projekt ist quelloffen und kann auf GitHub eingesehen werden. Dort koennen auch Fehler und Verbesserungen gemeldet werden.
-- Die Nutzung ist kostenlos und ohne Werbung. Eine kleine Spende freut mich sehr und unterstuetzt/motiviert mich, weiter an diesem und anderen Projekten zu arbeiten und alles aktuell zu halten.
+- Die Nutzung ist kostenlos und ohne Werbung. 
 
-## Spenden (optional)
-- Bitcoin: `bc1qkfaev4eayjllwhy0ga8knfds2tdx9zkp2kmtht`
-- Solana: `9X6DsdA7nnKFvd9m3TrGTMaqrq9K2zVXHckNhQhaFKRC`
-- Ethereum, Base, Polygon: `0x3d1797357dfd3639e268B673998e6afb58A180ab`
 
 Vielen Dank fuer die Nutzung.
+
+--- 
+## ToDos (Für Entwickler)
+- ✅ Eigene/Custom Disziplinen Anlegen Unterstützen.
+- ✅ Im Athleten "Profil" alle Leistungen richtig Darstellen. 
+- ✅ Notfall Kontakt möglichkeit zum Hinterlegen. & Mail Adresse. (Import anpassen nicht vergessen! + Mail Adressen export/Copy, für Mail verteiler)
+- Export für Urkunden oder Direkt Urkunden erstellen.
+- Loggen der Tätigkeiten, um Rückgängig machen zu können.
+- Integrierte Stopuhr im Prüfmodus wieder einbauen.
+- ✅ Stats/Infos verbessert: Aktivitäten Diagramm korrekt dargestellt, Alterklassen Diagramm zentriert, Erreichte Leistungen um "Insgesamt" erweitert.
+- Custom Domain & Name für das Projekt ausdenken, kaufen & nutzen.
+- Komando Zentrale: Button/Eingabefeld in der Titel Leiste, die alles ermöglicht: Personen Duchsuchen, Disziplinen Durchsuchen, funktionen nutzen, und vieles mehr.
+- Speichern, an welchen Tagen Athleten Deaktiviert/Aktiviert waren.
+- ✅ Import/Export möglichkeit der Daten aus der Sportabzeichen App für IOS.
+- ✅ Zusammenführen von Duplikaten / Mergen (Athleten & Gruppen)
+
 
 ---
 Copyright (c) 2026 Benny354912
