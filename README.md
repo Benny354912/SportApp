@@ -29,6 +29,7 @@ Vielen Dank fuer die Nutzung.
 - Speichern, an welchen Tagen Athleten Deaktiviert/Aktiviert waren.
 - ✅ Import/Export möglichkeit der Daten aus der Sportabzeichen App für IOS.
 - ✅ Zusammenführen von Duplikaten / Mergen (Athleten & Gruppen)
+- Update Informationen.
 
 
 ---
